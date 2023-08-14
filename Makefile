@@ -1,9 +1,9 @@
 .PHONY: all clean
 
 # Define required raylib variables
-PROJECT_NAME       ?= rlplayer
-RAYLIB_VERSION     ?= 4.5.0
-RAYLIB_PATH        ?= /opt/homebrew/Cellar/raylib/4.5.0
+PROJECT_NAME       ?= zraygui
+RAYLIB_VERSION     ?= 4.2.0
+RAYLIB_PATH        ?= C:/raylib/raylib
 
 # Define compiler path on Windows
 COMPILER_PATH      ?= C:/raylib/w64devkit/bin

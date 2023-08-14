@@ -4,7 +4,7 @@
 #include <raylib.h>
 
 #define RAYGUI_IMPLEMENTATION
-#include <raygui.h>
+#include "../include/raygui.h"
 
 #define DA_INIT_CAP 10
 
@@ -36,7 +36,8 @@ typedef enum {
     W_CHECKBOX,
     W_RADIO,
     W_COMBOBOX,
-    W_GROUPBOX
+    W_GROUPBOX,
+    W_SEPARATOR
 } WidgetType;
 
 typedef struct Layout {
@@ -90,6 +91,10 @@ typedef struct ComboBox {
 typedef struct GroupBox {
     char *title;
 } GroupBox;
+
+typedef struct Separator {
+    // Empty
+} Separator;
 
 void SetWidgetBounds(Widget *widget, Rectangle rect) {
     widget->rect = rect;
@@ -145,6 +150,8 @@ Layout *CreateLayout(Layout *parent, LayoutType type, Color c) {
     layout->type = type;
     layout->childs = (LayoutList*)malloc(sizeof(LayoutList));
     layout->color = c;
+    layout->widget = NULL;
+    layout->parent = NULL;
     AddToLayout(parent, layout);
     return layout;
 }
@@ -218,6 +225,13 @@ Widget *CreateGroupBox(Rectangle rect, char *title) {
     return widget;
 }
 
+Widget *CreateSeparator(int x, int y, int width) {
+    Separator *separator = (Separator*)malloc(sizeof(Separator));
+    Widget *widget = BuildWidget(W_SEPARATOR, separator);
+    widget->rect = (Rectangle){x,y,width,0};
+    return widget;
+}
+
 void DrawTextCentered(char *text, int fontSize, Rectangle rect) {
     int size = MeasureText(text, fontSize);
     DrawText(text, rect.x + (rect.width/2) - (size/2),rect.y + rect.height/2, fontSize, BLACK);
@@ -225,7 +239,13 @@ void DrawTextCentered(char *text, int fontSize, Rectangle rect) {
 
 bool CheckMouse(Widget *widget) {
     if (!widget) return false;
-    if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && CheckCollisionPointRec(GetMousePosition(), widget->rect)) {
+    Rectangle bounds = {
+        .x = widget->rect.x + widget->parent->parent->rect.x,
+        .y = widget->rect.y + widget->parent->parent->rect.y,
+        .width = widget->rect.width,
+        .height = widget->rect.height
+    };
+    if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && CheckCollisionPointRec(GetMousePosition(), bounds)) {
         return true;
     }
     return false;
@@ -285,16 +305,6 @@ void RenderRadio(Widget *widget) {
     }
 }
 
-char *CompactText(ComboBox *combo) {
-    char *string = (char*)calloc(1,1024);
-    for (size_t i = 0; i < combo->size - 1; i++) {
-        strcat(string, combo->options[i]);
-        strcat(string, ";");
-    }
-    strcat(string, combo->options[combo->size - 1]);
-    return string;
-}
-
 void RenderComboBox(Widget *widget) {
     ComboBox *combobox = (ComboBox*)widget->component;
     Layout *parent = widget->parent->parent;
@@ -319,6 +329,18 @@ void RenderGroupBox(Widget *widget) {
     GuiGroupBox(rect, groupBox->title);
 }
 
+void RenderSeparator(Widget *widget) {
+    Separator *separator = (Separator*)widget->component;
+    Layout *parent = widget->parent->parent;
+    Rectangle rect = {
+        .x = widget->rect.x + widget->parent->parent->rect.x,
+        .y = widget->rect.y + widget->parent->parent->rect.y,
+        .width = widget->rect.width,
+        .height = widget->rect.height
+    };
+    GuiLine(rect, NULL);
+}
+
 void RenderWidget(Widget *widget) {
     if (!widget) return;
     switch (widget->type) {
@@ -340,17 +362,11 @@ void RenderWidget(Widget *widget) {
         case W_GROUPBOX:
             RenderGroupBox(widget);
             break;
+        case W_SEPARATOR:
+            RenderSeparator(widget);
+            break;
         default:
             assert(0 && "Unreachable");
-    }
-}
-
-void RenderLayout(Layout *layout) {
-    DrawRectangleRec(layout->rect, layout->color);
-    RenderWidget(layout->widget);
-    LayoutList *childs = layout->childs;
-    for (size_t i = 0; i < childs->count; i++) {
-        RenderLayout(childs->items[i]);
     }
 }
 
@@ -362,6 +378,25 @@ void CheckMouseAll(Layout *layout) {
         }
         CheckMouseAll(childs->items[i]);
     }
+}
+
+void RenderLayout(Layout *layout) {
+    if(layout->widget && layout->widget->onClick && CheckMouse(layout->widget)) {
+        layout->widget->onClick(GetMousePosition());
+    }
+    DrawRectangleRec(layout->rect, layout->color);
+    RenderWidget(layout->widget);
+    LayoutList *childs = layout->childs;
+    for (size_t i = 0; i < childs->count; i++) {
+        RenderLayout(childs->items[i]);
+    }
+}
+
+void RenderWindow(Layout *rootLayout) {
+    rootLayout->rect.width = GetScreenWidth();
+    rootLayout->rect.height = GetScreenHeight();
+    UpdateLayout(rootLayout);
+    RenderLayout(rootLayout);
 }
 
 
@@ -379,10 +414,11 @@ int main(void) {
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(w,h,"zgui");
     Layout* root = CreateLayout(NULL, L_HORZ, WHITE);
-    Layout *left = CreateLayout(root, L_NONE, BLUE);
-    Layout *right = CreateLayout(root, L_NONE, RED);
+    Layout *left = CreateLayout(root, L_NONE, WHITE);
+    Layout *right = CreateLayout(root, L_NONE, WHITE);
     Widget *button = CreateButton("Test");
     Widget *label = CreateLabel("My label");
+    Widget *separator = CreateSeparator(200,400,500);
 
     char *strings [3] = {"s","b","c"};
     Widget *combobox = CreateComboBox(3, strings);
@@ -393,14 +429,13 @@ int main(void) {
     AddWidget(right, label);
     AddWidget(left, combobox);
     AddWidget(right, groupbox);
-    
+    AddWidget(left, separator);
+
+    OnWidgetClick(button, my_callback);
     while (!WindowShouldClose()) {
-        UpdateLayout(root);
         BeginDrawing();
-            
             ClearBackground(WHITE);
-            CheckMouseAll(root);
-            RenderLayout(root);
+            RenderWindow(root);
         EndDrawing();
     }
     return 0;
