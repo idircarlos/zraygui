@@ -19,6 +19,8 @@
         (da)->items[(da)->count++] = (item);                                         \
     } while (0)
 
+#define ARRAY_SIZE(arr) sizeof(arr)/sizeof(char*)
+
 typedef struct _layout_list LayoutList;
 typedef struct _widget Widget;
 
@@ -32,13 +34,14 @@ typedef enum {
     W_BUTTON = 0,
     W_LABEL,
     W_CHECKBOX,
-    W_RADIO
+    W_RADIO,
+    W_COMBOBOX
 } WidgetType;
 
 typedef struct Layout {
     Widget *widget;
     Rectangle rect;
-    LayoutType orient;
+    LayoutType type;
     Color color;
     struct Layout *parent;
     LayoutList *childs;
@@ -60,40 +63,45 @@ struct _layout_list {
 
 typedef struct Button {
     char *text;
-    Color color;
 } Button;
 
 typedef struct Label {
     char *text;
 } Label;
 
-typedef struct Checkbox {
+typedef struct CheckBox {
     char *text;
     bool checked;
-} Checkbox;
+} CheckBox;
 
 typedef struct Radio {
     char *text;
     bool checked;
 } Radio;
 
+typedef struct ComboBox {
+    char **options;
+    size_t size;
+    int index;
+    bool opened;
+} ComboBox;
+
 void SetWidgetBounds(Widget *widget, Rectangle rect) {
-    widget->rect.x = rect.x;
-    widget->rect.y = rect.y;
+    widget->rect = rect;
 }
 
 void UpdateLayout(Layout *parent) {
-    if (parent->widget) SetWidgetBounds(parent->widget, parent->rect);
     int offsetx = parent->rect.width  / parent->childs->count;
     int offsety = parent->rect.height / parent->childs->count;
     for (size_t i = 0; i < parent->childs->count; i++) {
         Layout *children = parent->childs->items[i];
-        switch (parent->orient) {
+        switch (parent->type) {
             case L_HORZ:
                 children->rect.x = parent->rect.x + (i*offsetx);
                 children->rect.y = parent->rect.y;
                 children->rect.width = offsetx;
                 children->rect.height = parent->rect.height;
+                if (parent->widget) SetWidgetBounds(parent->widget, parent->rect);
                 break;
 
             case L_VERT:
@@ -101,8 +109,10 @@ void UpdateLayout(Layout *parent) {
                 children->rect.y = parent->rect.y + (i*offsety);
                 children->rect.width = parent->rect.width;
                 children->rect.height = offsety;
+                if (parent->widget) SetWidgetBounds(parent->widget, parent->rect);
                 break;
-
+            case L_NONE:
+                break;
             default:
                 assert(0 && "Unreachable");
         }
@@ -118,7 +128,7 @@ void AddToLayout(Layout *parent, Layout *children) {
     UpdateLayout(parent);
 }
 
-Layout *CreateLayout(Layout *parent, LayoutType orient, Color c) {
+Layout *CreateLayout(Layout *parent, LayoutType type, Color c) {
     Rectangle rect = {0};
     if (!parent) {
         rect.x = 0;
@@ -128,7 +138,7 @@ Layout *CreateLayout(Layout *parent, LayoutType orient, Color c) {
     }
     Layout *layout = (Layout*)malloc(sizeof(Layout));
     layout->rect = rect;
-    layout->orient = orient;
+    layout->type = type;
     layout->childs = (LayoutList*)malloc(sizeof(LayoutList));
     layout->color = c;
     AddToLayout(parent, layout);
@@ -136,10 +146,9 @@ Layout *CreateLayout(Layout *parent, LayoutType orient, Color c) {
 }
 
 void AddWidget(Layout *layout, Widget *widget) {
-    Layout *l = CreateLayout(layout, L_HORZ, WHITE);
+    Layout *l = CreateLayout(layout, L_NONE, WHITE);
     l->widget = widget;
     widget->parent = l;
-    SetWidgetBounds(widget, l->rect);
 }
 
 Widget *BuildWidget(WidgetType wtype, void *component) {
@@ -152,9 +161,8 @@ Widget *BuildWidget(WidgetType wtype, void *component) {
     return widget;
 }
 
-Widget *CreateButton(char *text, Color c) {
+Widget *CreateButton(char *text) {
     Button *button = (Button*)malloc(sizeof(Button));
-    button->color = c;
     button->text = text;
     Widget *widget = BuildWidget(W_BUTTON, button);
     widget->rect = (Rectangle){0, 0, 90, 30};
@@ -169,8 +177,8 @@ Widget *CreateLabel(char *text) {
     return widget;
 }
 
-Widget *CreateCheckbox(char *text) {
-    Checkbox *checkbox = (Checkbox*)malloc(sizeof(Checkbox));
+Widget *CreateCheckBox(char *text) {
+    CheckBox *checkbox = (CheckBox*)malloc(sizeof(CheckBox));
     checkbox->checked = false;
     checkbox->text = text;
     Widget *widget = BuildWidget(W_CHECKBOX, checkbox);
@@ -184,6 +192,17 @@ Widget *CreateRadio(char *text) {
     radio->text = text;
     Widget *widget = BuildWidget(W_RADIO, radio);
     widget->rect = (Rectangle){0, 0, 15, 15};
+    return widget;
+}
+
+Widget *CreateComboBox(size_t size, char **options) {
+    ComboBox *combobox = (ComboBox*)malloc(sizeof(ComboBox));
+    combobox->opened = false;
+    combobox->index = 0;
+    combobox->size = size;
+    combobox->options = options;
+    Widget *widget = BuildWidget(W_COMBOBOX, combobox);
+    widget->rect = (Rectangle){0, 0, 100, 25};
     return widget;
 }
 
@@ -202,23 +221,47 @@ bool CheckMouse(Widget *widget) {
 
 void RenderButton(Widget *widget) {
     Button *button = (Button*)widget->component;
-    GuiButton(widget->rect, button->text);
+    Rectangle rect = {
+        .x = widget->rect.x + widget->parent->parent->rect.x,
+        .y = widget->rect.y + widget->parent->parent->rect.y,
+        .width = widget->rect.width,
+        .height = widget->rect.height
+    };
+    GuiButton(rect, button->text);
 }
 
 void RenderLabel(Widget *widget) {
     Label *label = (Label*)widget->component;
-    GuiLabel(widget->rect, label->text);
+    Rectangle rect = {
+        .x = widget->rect.x + widget->parent->parent->rect.x,
+        .y = widget->rect.y + widget->parent->parent->rect.y,
+        .width = widget->rect.width,
+        .height = widget->rect.height
+    };
+    GuiLabel(rect, label->text);
 }
 
 void RenderCheckbox(Widget *widget) {
-    Checkbox *checkbox = (Checkbox*)widget->component;
-    GuiCheckBox(widget->rect, checkbox->text, &checkbox->checked);
+    CheckBox *checkbox = (CheckBox*)widget->component;
+    Rectangle rect = {
+        .x = widget->rect.x + widget->parent->parent->rect.x,
+        .y = widget->rect.y + widget->parent->parent->rect.y,
+        .width = widget->rect.width,
+        .height = widget->rect.height
+    };
+    GuiCheckBox(rect, checkbox->text, &checkbox->checked);
 }
 
 void RenderRadio(Widget *widget) {
     Radio *radio = (Radio*)widget->component;
     Layout *parent = widget->parent->parent;
-    GuiRadioButton(widget->rect, radio->text, &radio->checked);
+    Rectangle rect = {
+        .x = widget->rect.x + widget->parent->parent->rect.x,
+        .y = widget->rect.y + widget->parent->parent->rect.y,
+        .width = widget->rect.width,
+        .height = widget->rect.height
+    };
+    GuiRadioButton(rect, radio->text, &radio->checked);
     if (radio->checked) {
         for (size_t i = 0; i < parent->childs->count; i++) {
             Widget *w = parent->childs->items[i]->widget;
@@ -228,6 +271,29 @@ void RenderRadio(Widget *widget) {
             }
         }
     }
+}
+
+char *CompactText(ComboBox *combo) {
+    char *string = (char*)calloc(1,1024);
+    for (size_t i = 0; i < combo->size - 1; i++) {
+        strcat(string, combo->options[i]);
+        strcat(string, ";");
+    }
+    strcat(string, combo->options[combo->size - 1]);
+    return string;
+}
+
+void RenderComboBox(Widget *widget) {
+    ComboBox *combobox = (ComboBox*)widget->component;
+    Layout *parent = widget->parent->parent;
+    Rectangle rect = {
+        .x = widget->rect.x + widget->parent->parent->rect.x,
+        .y = widget->rect.y + widget->parent->parent->rect.y,
+        .width = widget->rect.width,
+        .height = widget->rect.height
+    };
+    if(GuiDropdownBox(rect, combobox->options, combobox->size, &combobox->index, combobox->opened)) combobox->opened = !combobox->opened;
+    
 }
 
 void RenderWidget(Widget *widget) {
@@ -245,6 +311,9 @@ void RenderWidget(Widget *widget) {
         case W_RADIO:
             RenderRadio(widget);
             break;
+        case W_COMBOBOX:
+            RenderComboBox(widget);
+            break;
         default:
             assert(0 && "Unreachable");
     }
@@ -254,7 +323,6 @@ void RenderLayout(Layout *layout) {
     DrawRectangleRec(layout->rect, layout->color);
     RenderWidget(layout->widget);
     LayoutList *childs = layout->childs;
-    assert(childs != NULL);
     for (size_t i = 0; i < childs->count; i++) {
         RenderLayout(childs->items[i]);
     }
@@ -284,48 +352,29 @@ int main(void) {
     int h = 700;
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(w,h,"zgui");
-    Layout* root = CreateLayout(NULL,L_HORZ, WHITE);
-    Layout* child1 = CreateLayout(root,L_VERT, GetColor(0x5a7b91ff));
-    Layout* child1_1 = CreateLayout(child1,L_VERT, GetColor(0x5a7b91ff));
-    Layout* child1_2 = CreateLayout(child1,L_VERT, MAGENTA);
-    Layout* child2 = CreateLayout(root,L_HORZ, GREEN);
-    Layout* child3 = CreateLayout(root,L_VERT, BLUE);
+    Layout* root = CreateLayout(NULL, L_HORZ, WHITE);
+    Layout *left = CreateLayout(root, L_NONE, BLUE);
+    Layout *right = CreateLayout(root, L_NONE, RED);
+    Widget *button = CreateButton("Test");
+    Widget *label = CreateLabel("My label");
+
+    char *strings [3] = {"s","b","c"};
+    Widget *combobox = CreateComboBox(3, strings);
+    SetWidgetBounds(button, (Rectangle){20,20,50,50});
+    AddWidget(right, button);
+    AddWidget(right, label);
+    AddWidget(left, combobox);
+    int value = 4;
+    bool edit = false;
     
-    Layout* child4 = CreateLayout(child3,L_VERT, GetColor(0xd10d94ff));
-    Layout* child5 = CreateLayout(child3,L_HORZ, ORANGE);
-    Layout* child6 = CreateLayout(child3,L_VERT, GetColor(0x07dbbfff));
-
-    Widget* button = CreateButton("My button", YELLOW);
-    Widget* label = CreateLabel("My label");
-    Widget* label2 = CreateLabel("My label 2");
-    Widget* testLabel = CreateLabel("Test label");
-    Widget* checkbox1 = CreateCheckbox("Checkbox 1");
-    Widget* checkbox2 = CreateCheckbox("Checkbox 2");
-    Widget* radio1 = CreateRadio("Option A");
-    Widget* radio2 = CreateRadio("Option B");
-    Widget* radio3 = CreateRadio("Option C");
-
-    AddWidget(child5, button);
-    AddWidget(child5, label);
-    AddWidget(child5, label2);
-    AddWidget(child4, checkbox1);
-    AddWidget(child4, checkbox2);
-
-    AddWidget(child6, radio1);
-    AddWidget(child6, radio2);
-    AddWidget(child6, radio3);
-    AddWidget(child6, testLabel);
-
-    OnWidgetClick(button, my_callback);
-
     while (!WindowShouldClose()) {
-        root->rect.width = GetRenderWidth();
-        root->rect.height = GetRenderHeight();
         UpdateLayout(root);
         BeginDrawing();
+            
             ClearBackground(WHITE);
             CheckMouseAll(root);
             RenderLayout(root);
+            
         EndDrawing();
     }
     return 0;
