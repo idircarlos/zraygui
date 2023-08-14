@@ -35,7 +35,8 @@ typedef enum {
     W_LABEL,
     W_CHECKBOX,
     W_RADIO,
-    W_COMBOBOX
+    W_COMBOBOX,
+    W_GROUPBOX
 } WidgetType;
 
 typedef struct Layout {
@@ -86,6 +87,10 @@ typedef struct ComboBox {
     bool opened;
 } ComboBox;
 
+typedef struct GroupBox {
+    char *title;
+} GroupBox;
+
 void SetWidgetBounds(Widget *widget, Rectangle rect) {
     widget->rect = rect;
 }
@@ -118,7 +123,6 @@ void UpdateLayout(Layout *parent) {
         }
         UpdateLayout(children);
     }
-     
 }
 
 void AddToLayout(Layout *parent, Layout *children) {
@@ -203,6 +207,14 @@ Widget *CreateComboBox(size_t size, char **options) {
     combobox->options = options;
     Widget *widget = BuildWidget(W_COMBOBOX, combobox);
     widget->rect = (Rectangle){0, 0, 100, 25};
+    return widget;
+}
+
+Widget *CreateGroupBox(Rectangle rect, char *title) {
+    GroupBox *groupbox = (GroupBox*)malloc(sizeof(GroupBox));
+    groupbox->title = title;
+    Widget *widget = BuildWidget(W_GROUPBOX, groupbox);
+    widget->rect = rect;
     return widget;
 }
 
@@ -293,7 +305,18 @@ void RenderComboBox(Widget *widget) {
         .height = widget->rect.height
     };
     if(GuiDropdownBox(rect, combobox->options, combobox->size, &combobox->index, combobox->opened)) combobox->opened = !combobox->opened;
-    
+}
+
+void RenderGroupBox(Widget *widget) {
+    GroupBox *groupBox = (GroupBox*)widget->component;
+    Layout *parent = widget->parent->parent;
+    Rectangle rect = {
+        .x = widget->rect.x + widget->parent->parent->rect.x,
+        .y = widget->rect.y + widget->parent->parent->rect.y,
+        .width = widget->rect.width,
+        .height = widget->rect.height
+    };
+    GuiGroupBox(rect, groupBox->title);
 }
 
 void RenderWidget(Widget *widget) {
@@ -313,6 +336,9 @@ void RenderWidget(Widget *widget) {
             break;
         case W_COMBOBOX:
             RenderComboBox(widget);
+            break;
+        case W_GROUPBOX:
+            RenderGroupBox(widget);
             break;
         default:
             assert(0 && "Unreachable");
@@ -361,11 +387,12 @@ int main(void) {
     char *strings [3] = {"s","b","c"};
     Widget *combobox = CreateComboBox(3, strings);
     SetWidgetBounds(button, (Rectangle){20,20,50,50});
+
+    Widget *groupbox = CreateGroupBox((Rectangle){30,30,200,50}, "Title");
     AddWidget(right, button);
     AddWidget(right, label);
     AddWidget(left, combobox);
-    int value = 4;
-    bool edit = false;
+    AddWidget(right, groupbox);
     
     while (!WindowShouldClose()) {
         UpdateLayout(root);
@@ -374,7 +401,6 @@ int main(void) {
             ClearBackground(WHITE);
             CheckMouseAll(root);
             RenderLayout(root);
-            
         EndDrawing();
     }
     return 0;
