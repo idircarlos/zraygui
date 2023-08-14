@@ -21,6 +21,7 @@
 
 #define ARRAY_SIZE(arr) sizeof(arr)/sizeof(char*)
 
+typedef struct _component Component;    // Generic empty struct used to contain the pointer to the specific widget (button, label...)
 typedef struct _layout_list LayoutList;
 typedef struct _widget Widget;
 
@@ -53,7 +54,7 @@ struct _widget {
     Layout *parent;
     Rectangle rect;
     WidgetType type;
-    void *component;
+    Component *component;
     void (*onClick)(Vector2 mousePos);
 };
 
@@ -162,7 +163,7 @@ void AddWidget(Layout *layout, Widget *widget) {
     widget->parent = l;
 }
 
-Widget *BuildWidget(WidgetType wtype, void *component) {
+Widget *BuildWidget(WidgetType wtype, Component *component) {
     Widget *widget = (Widget*)malloc(sizeof(Widget));
     widget->parent = NULL;
     widget->type = wtype;
