@@ -120,6 +120,31 @@ void SetWidgetBounds(Widget *widget, Rectangle rect) {
     widget->rect = rect;
 }
 
+int GetWidgetX(Widget *widget) {
+    return widget->rect.x;
+}
+
+int GetWidgetY(Widget *widget) {
+    return widget->rect.y;
+}
+
+int GetWidgetWidth(Widget *widget) {
+    return widget->rect.width;
+}
+
+int GetWidgetHeight(Widget *widget) {
+    return widget->rect.height;
+}
+
+Vector2 GetWidgetPos(Widget *widget) {
+    return (Vector2){widget->rect.x, widget->rect.y};
+}
+
+void SetWidgetPos(Widget *widget, Vector2 pos) {
+    widget->rect.x = pos.x;
+    widget->rect.y = pos.y;
+}
+
 static void UpdateLayout(Layout *parent) {
     int offsetx = parent->rect.width  / parent->childs->count;
     int offsety = parent->rect.height / parent->childs->count;
@@ -203,7 +228,7 @@ Widget *CreateButton(char *text) {
     Button *button = (Button*)malloc(sizeof(Button));
     button->text = text;
     Widget *widget = BuildWidget(W_BUTTON, button);
-    widget->rect = (Rectangle){0, 0, 90, 30};
+    widget->rect = (Rectangle){0, 0, 75, 25};
     return widget;
 }
 

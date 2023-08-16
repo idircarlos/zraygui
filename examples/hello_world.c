@@ -17,22 +17,20 @@ int main(void) {
     button = CreateButton("Press me!");
     label = CreateLabel("Hello, World!");
 
-    int buttonWidth = 75;
-    int buttonHeight = 25;
-    SetWidgetBounds(button, (Rectangle){(w - buttonWidth) / 2, (h - buttonHeight) / 4, buttonWidth, buttonHeight});
-
-    Rectangle labelRect = GetWidgetBounds(label);
-    SetWidgetBounds(label, (Rectangle){(w - labelRect.width) / 2, ((h - labelRect.height) / 2) + 15, labelRect.width, labelRect.height});
+    SetWidgetPos(button, (Vector2){(w - GetWidgetWidth(button)) / 2, (h - GetWidgetHeight(button)) / 4});
+    SetWidgetPos(label, (Vector2){(w - GetWidgetWidth(label)) / 2, ((h - GetWidgetHeight(label)) / 2) + 15});
+    
     SetWidgetVisible(label, false);
 
     AddWidget(root, button);
     AddWidget(root, label);
     OnWidgetClick(button, my_callback);
-    
+
     while (!WindowShouldClose()) {
         BeginDrawing();
             ClearBackground(WHITE);
             RenderWindow(root);
+            
         EndDrawing();
     }
     return 0;
