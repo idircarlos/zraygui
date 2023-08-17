@@ -1,1 +1,1 @@
-clang -framework CoreVideo -framework IOKit -framework Cocoa -framework GLUT -framework OpenGL -I ./include libraylib.a src/*.c -o zgui
+clang -framework CoreVideo -framework IOKit -framework Cocoa -framework GLUT -framework OpenGL -I ./include libraylib.a src/*.c -o zraygui

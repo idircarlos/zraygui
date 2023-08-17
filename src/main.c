@@ -9,8 +9,8 @@ void my_callback(Vector2 mousePos) {
 }
 
 int main(void) {
-    int w = 250;
-    int h = 100;
+    int w = 750;
+    int h = 600;
     InitWindow(w,h,"Hello world zraygui");
 
     root = CreateLayout(NULL, L_NONE, WHITE);
@@ -25,6 +25,21 @@ int main(void) {
     AddWidget(root, button);
     AddWidget(root, label);
     OnWidgetClick(button, my_callback);
+    Widget *menuBar = CreateMenuBar();
+    Widget *fileItem = CreateMenuItem(NULL, "File");
+    Widget *editItem = CreateMenuItem(fileItem, "Edit");
+    Widget *toolsItem = CreateMenuItem(NULL, "Tools");
+    Widget *propertiesItem = CreateMenuItem(NULL, "Properties");
+    Widget *optionsItem = CreateMenuItem(NULL, "Options");
+    Widget *helpItem = CreateMenuItem(NULL, "Help");
+
+    AddWidget(root, menuBar);
+    AddItemToMenuBar(menuBar, fileItem);
+    AddItemToMenuBar(menuBar, editItem);
+    AddItemToMenuBar(menuBar, toolsItem);
+    AddItemToMenuBar(menuBar, propertiesItem);
+    AddItemToMenuBar(menuBar, optionsItem);
+    AddItemToMenuBar(menuBar, helpItem);
 
     while (!WindowShouldClose()) {
         BeginDrawing();

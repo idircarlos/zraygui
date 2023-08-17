@@ -634,7 +634,7 @@ RAYGUIAPI int GuiRadioButton(Rectangle bounds, const char *text, bool *checked);
 
 RAYGUIAPI int GuiComboBox(Rectangle bounds, const char *text, int *active);                            // Combo Box control, returns selected item index
 
-RAYGUIAPI int GuiDropdownBox(Rectangle bounds, const char **items, int itemCount, int *active, bool editMode);          // Dropdown Box control, returns selected item
+RAYGUIAPI int GuiDropdownBox(Rectangle bounds, char **items, int itemCount, int *active, bool editMode);          // Dropdown Box control, returns selected item
 RAYGUIAPI int GuiSpinner(Rectangle bounds, const char *text, int *value, int minValue, int maxValue, bool editMode); // Spinner control, returns selected value
 RAYGUIAPI int GuiValueBox(Rectangle bounds, const char *text, int *value, int minValue, int maxValue, bool editMode); // Value Box control, updates input text with numbers
 RAYGUIAPI int GuiTextBox(Rectangle bounds, char *text, int textSize, bool editMode);                   // Text Box control, updates input text
@@ -2259,7 +2259,7 @@ int GuiComboBox(Rectangle bounds, const char *text, int *active)
 
 // Dropdown Box control
 // NOTE: Returns mouse click
-int GuiDropdownBox(Rectangle bounds, const char **items, int itemCount, int *active, bool editMode)
+int GuiDropdownBox(Rectangle bounds, char **items, int itemCount, int *active, bool editMode)
 {
     int result = 0;
     GuiState state = guiState;

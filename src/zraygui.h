@@ -6,7 +6,7 @@
 #define RAYGUI_IMPLEMENTATION
 #include "../include/raygui.h"
 
-#define DA_INIT_CAP 10
+#define DA_INIT_CAP 20
 
 #define da_append(da, item)                                                          \
     do {                                                                             \
@@ -39,7 +39,9 @@ typedef enum {
     W_COMBOBOX,
     W_GROUPBOX,
     W_SEPARATOR,
-    W_TEXTBOX
+    W_TEXTBOX,
+    W_MENUITEM,
+    W_MENUBAR
 } WidgetType;
 
 typedef struct Layout {
@@ -104,10 +106,22 @@ typedef struct TextBox {
     bool active;
 } TextBox;
 
+typedef struct MenuItem {
+    char *text;
+    struct MenuItem *parent;
+} MenuItem;
+
+typedef struct MenuBar {
+    MenuItem **items;
+    size_t count;
+    size_t capacity;
+    int currentWidth;
+} MenuBar;
+
 LayoutList *CreateLayoutList() {
     LayoutList *list = (LayoutList*)malloc(sizeof(LayoutList));
-    list->items = (Layout*)malloc(DA_INIT_CAP*sizeof(Layout));
-    list->capacity = DA_INIT_CAP;
+    list->items = (Layout**)malloc(sizeof(Layout*));
+    list->capacity = 0;
     list->count = 0;
     return list;
 }
@@ -213,6 +227,17 @@ void AddWidget(Layout *layout, Widget *widget) {
     widget->parent = l;
 }
 
+void AddItemToMenuBar(Widget *menuBarWidget, Widget *menuItemWidget) {
+    if (menuBarWidget->type != W_MENUBAR || menuItemWidget->type != W_MENUITEM) return;
+    MenuBar *menubar = (MenuBar*)menuBarWidget->component;
+    MenuItem *menuitem = (MenuItem*)menuItemWidget->component;
+    // TODO: Calc the new x pos
+    AddWidget(menuBarWidget->parent->parent, menuItemWidget);
+    da_append(menubar, menuitem);
+    menuItemWidget->rect.x = menubar->currentWidth;
+    menubar->currentWidth += menuItemWidget->rect.width;
+}
+
 static Widget *BuildWidget(WidgetType wtype, Component *component) {
     Widget *widget = (Widget*)malloc(sizeof(Widget));
     widget->parent = NULL;
@@ -227,7 +252,7 @@ static Widget *BuildWidget(WidgetType wtype, Component *component) {
 Widget *CreateButton(char *text) {
     Button *button = (Button*)malloc(sizeof(Button));
     button->text = text;
-    Widget *widget = BuildWidget(W_BUTTON, button);
+    Widget *widget = BuildWidget(W_BUTTON, (Component*)button);
     widget->rect = (Rectangle){0, 0, 75, 25};
     return widget;
 }
@@ -236,7 +261,7 @@ Widget *CreateLabel(char *text) {
     Label *label = (Label*)malloc(sizeof(Label));
     label->text = malloc(1024*sizeof(char));
     strcpy(label->text, text);
-    Widget *widget = BuildWidget(W_LABEL, label);
+    Widget *widget = BuildWidget(W_LABEL, (Component*)label);
     widget->rect = (Rectangle){
         .x = 0,
         .y = 0,
@@ -245,7 +270,6 @@ Widget *CreateLabel(char *text) {
     };
     int width = GetTextWidth(text);
     int size = MeasureText(text, (float)GuiGetStyle(DEFAULT, TEXT_SIZE));
-    printf("%d, %d\n", width, size);
     
     widget->rect.width = size;
 
@@ -256,7 +280,7 @@ Widget *CreateCheckBox(char *text) {
     CheckBox *checkbox = (CheckBox*)malloc(sizeof(CheckBox));
     checkbox->checked = false;
     checkbox->text = text;
-    Widget *widget = BuildWidget(W_CHECKBOX, checkbox);
+    Widget *widget = BuildWidget(W_CHECKBOX, (Component*)checkbox);
     widget->rect = (Rectangle){0, 0, 20, 20};
     return widget;
 }
@@ -265,7 +289,7 @@ Widget *CreateRadio(char *text) {
     Radio *radio = (Radio*)malloc(sizeof(Radio));
     radio->checked = false;
     radio->text = text;
-    Widget *widget = BuildWidget(W_RADIO, radio);
+    Widget *widget = BuildWidget(W_RADIO, (Component*)radio);
     widget->rect = (Rectangle){0, 0, 15, 15};
     return widget;
 }
@@ -276,7 +300,7 @@ Widget *CreateComboBox(size_t size, char **options) {
     combobox->index = 0;
     combobox->size = size;
     combobox->options = options;
-    Widget *widget = BuildWidget(W_COMBOBOX, combobox);
+    Widget *widget = BuildWidget(W_COMBOBOX, (Component*)combobox);
     widget->rect = (Rectangle){0, 0, 100, 25};
     return widget;
 }
@@ -284,14 +308,14 @@ Widget *CreateComboBox(size_t size, char **options) {
 Widget *CreateGroupBox(Rectangle rect, char *title) {
     GroupBox *groupbox = (GroupBox*)malloc(sizeof(GroupBox));
     groupbox->title = title;
-    Widget *widget = BuildWidget(W_GROUPBOX, groupbox);
+    Widget *widget = BuildWidget(W_GROUPBOX, (Component*)groupbox);
     widget->rect = rect;
     return widget;
 }
 
 Widget *CreateSeparator(int x, int y, int width) {
     Separator *separator = (Separator*)malloc(sizeof(Separator));
-    Widget *widget = BuildWidget(W_SEPARATOR, separator);
+    Widget *widget = BuildWidget(W_SEPARATOR, (Component*)separator);
     widget->rect = (Rectangle){x,y,width,0};
     return widget;
 }
@@ -300,8 +324,29 @@ Widget *CreateTextBox(Rectangle rect) {
     TextBox *textbox = (TextBox*)malloc(sizeof(TextBox));
     textbox->active = false;
     memset(textbox->text, 0, ARRAY_SIZE(textbox->text));
-    Widget *widget = BuildWidget(W_TEXTBOX, textbox);
+    Widget *widget = BuildWidget(W_TEXTBOX, (Component*)textbox);
     widget->rect = rect;
+    return widget;
+}
+
+Widget *CreateMenuBar() {
+    MenuBar *menubar = (MenuBar*)malloc(sizeof(MenuBar));
+    menubar->items = (MenuItem**)malloc(sizeof(MenuItem*));
+    menubar->count = 0;
+    menubar->capacity = 0;
+    menubar->currentWidth = 0;
+    Widget *widget = BuildWidget(W_MENUBAR, (Component*)menubar);
+    widget->rect = (Rectangle){0,0,GetScreenWidth(),40};
+    return widget;
+}
+
+Widget *CreateMenuItem(Widget *parentMenuItem, char *text) {
+    MenuItem *menuitem = (MenuItem*)malloc(sizeof(MenuItem));
+    menuitem->text = text;
+    menuitem->parent = (parentMenuItem && parentMenuItem->type == W_MENUITEM) ? (MenuItem*)parentMenuItem->component : NULL;
+    Widget *widget = BuildWidget(W_MENUITEM, (Component*)menuitem);
+    int size = GetTextWidth(text);
+    widget->rect = (Rectangle){0,0,size*2,20};
     return widget;
 }
 
@@ -380,6 +425,18 @@ static void RenderTextBox(Widget *widget) {
     GuiTextBox(widget->rect, textbox->text, ARRAY_SIZE(textbox->text), textbox->active);
 }
 
+static void RenderMenuItem(Widget *widget) {
+    MenuItem *menuitem = (MenuItem*)widget->component;
+    Layout *parent = widget->parent->parent;
+    GuiButton(widget->rect, menuitem->text);
+}
+
+static void RenderMenuBar(Widget *widget) {
+    MenuBar *menubar = (MenuBar*)widget->component;
+    Layout *parent = widget->parent->parent;
+    GuiLine(widget->rect, NULL);
+}
+
 static void RenderWidget(Widget *widget) {
     if (!widget || !widget->visible) return;
     switch (widget->type) {
@@ -406,6 +463,12 @@ static void RenderWidget(Widget *widget) {
             break;
         case W_TEXTBOX:
             RenderTextBox(widget);
+            break;
+        case W_MENUITEM:
+            RenderMenuItem(widget);
+            break;
+        case W_MENUBAR:
+            RenderMenuBar(widget);
             break;
         default:
             assert(0 && "Unreachable");
