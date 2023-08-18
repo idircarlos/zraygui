@@ -1,6 +1,5 @@
 #include "zraygui.h"
 
-
 Layout* root;
 Widget *button, *label;
 
@@ -40,12 +39,11 @@ int main(void) {
     AddItemToMenuBar(menuBar, propertiesItem);
     AddItemToMenuBar(menuBar, optionsItem);
     AddItemToMenuBar(menuBar, helpItem);
-
+    char *nose [3] = {"Prueba","Dos","Ole"};
     while (!WindowShouldClose()) {
         BeginDrawing();
             ClearBackground(WHITE);
             RenderWindow(root);
-            
         EndDrawing();
     }
     return 0;

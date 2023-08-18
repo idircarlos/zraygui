@@ -59,6 +59,7 @@ struct _widget {
     WidgetType type;
     Component *component;
     bool visible;
+    bool active;
     void (*onClick)(Vector2 mousePos);
 };
 
@@ -108,7 +109,8 @@ typedef struct TextBox {
 
 typedef struct MenuItem {
     char *text;
-    struct MenuItem *parent;
+    Widget *parent;
+    bool isLeaf;
 } MenuItem;
 
 typedef struct MenuBar {
@@ -234,8 +236,15 @@ void AddItemToMenuBar(Widget *menuBarWidget, Widget *menuItemWidget) {
     // TODO: Calc the new x pos
     AddWidget(menuBarWidget->parent->parent, menuItemWidget);
     da_append(menubar, menuitem);
-    menuItemWidget->rect.x = menubar->currentWidth;
-    menubar->currentWidth += menuItemWidget->rect.width;
+    if (menuitem->parent == NULL) {
+        menuItemWidget->rect.x = menubar->currentWidth;
+        menubar->currentWidth += menuItemWidget->rect.width;
+    }
+    else {
+        menuItemWidget->rect.y += 20;
+    }
+    
+    
 }
 
 static Widget *BuildWidget(WidgetType wtype, Component *component) {
@@ -246,6 +255,7 @@ static Widget *BuildWidget(WidgetType wtype, Component *component) {
     widget->rect = (Rectangle){0};
     widget->onClick = NULL;
     widget->visible = true;
+    widget->active = true;
     return widget;
 }
 
@@ -340,13 +350,20 @@ Widget *CreateMenuBar() {
     return widget;
 }
 
-Widget *CreateMenuItem(Widget *parentMenuItem, char *text) {
+Widget *CreateMenuItem(Widget *parentMenuItemWidget, char *text) {
+    MenuItem *parentMenuItem = (parentMenuItemWidget && parentMenuItemWidget->type == W_MENUITEM) ? (MenuItem*)parentMenuItemWidget->component : NULL;
     MenuItem *menuitem = (MenuItem*)malloc(sizeof(MenuItem));
     menuitem->text = text;
-    menuitem->parent = (parentMenuItem && parentMenuItem->type == W_MENUITEM) ? (MenuItem*)parentMenuItem->component : NULL;
+    menuitem->parent = parentMenuItemWidget; 
+    menuitem->isLeaf = true;
     Widget *widget = BuildWidget(W_MENUITEM, (Component*)menuitem);
     int size = GetTextWidth(text);
     widget->rect = (Rectangle){0,0,size*2,20};
+    if (parentMenuItem != NULL) {
+        parentMenuItem->isLeaf = false; // Now the parent widget is not a leaf and should be a dropdownbox
+        parentMenuItemWidget->active = false;
+    }
+    
     return widget;
 }
 
@@ -428,7 +445,29 @@ static void RenderTextBox(Widget *widget) {
 static void RenderMenuItem(Widget *widget) {
     MenuItem *menuitem = (MenuItem*)widget->component;
     Layout *parent = widget->parent->parent;
-    GuiButton(widget->rect, menuitem->text);
+    char *xd[3] = {"XD", "Prueba", "Sisi"};
+    int active = 1;
+    int focus = 1;
+    if (menuitem->parent == NULL) {
+        GuiButton(widget->rect, menuitem->text);
+        
+    }
+    else {
+        DrawCircle(menuitem->parent->rect.x + menuitem->parent->rect.width - 7, menuitem->parent->rect.y + menuitem->parent->rect.height/2, 3, BLACK);
+        Rectangle rect = (Rectangle)widget->rect;
+        widget->visible = true;
+        rect.width += 30;
+        rect.height += 25 * 3;
+        if (CheckCollisionPointRec(GetMousePosition(), menuitem->parent->rect)) {
+            widget->active = true;
+        }
+        else if (!CheckCollisionPointRec(GetMousePosition(), rect)) {
+            widget->active = false;
+        }
+        if (widget->active) {
+            GuiListViewEx(rect, xd, 3, &active, &active, &focus);
+        }
+    }
 }
 
 static void RenderMenuBar(Widget *widget) {
