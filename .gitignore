@@ -2,3 +2,4 @@
 resources
 main.code-workspace
 *.exe
+src/*.c
