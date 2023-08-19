@@ -21,9 +21,12 @@
 
 #define ARRAY_SIZE(arr) sizeof(arr)/sizeof(char*)
 
+#define PRINT_RECTANGLE(rect) printf("Rectangle[%1.f, %1.f, %1.f, %1.f]\n", rect.x, rect.y, rect.width, rect.height);
+
 typedef struct _component Component;    // Generic empty struct used to contain the pointer to the specific widget (button, label...)
 typedef struct _layout_list LayoutList;
 typedef struct _widget Widget;
+typedef struct _menu_item_list MenuItemList;
 
 typedef enum {
     L_NONE,
@@ -108,16 +111,26 @@ typedef struct TextBox {
 } TextBox;
 
 typedef struct MenuItem {
+    Widget *super;
     char *text;
-    Widget *parent;
+    struct MenuItem *parent;
+    MenuItemList *childs;
     bool isLeaf;
+    size_t level;
+    bool expanded;  // If this item is a root of a (sub)menu then it is true if its options are visibles, false otherwise
 } MenuItem;
+
+struct _menu_item_list {
+    MenuItem **items;
+    size_t count;
+    size_t capacity;
+};
 
 typedef struct MenuBar {
     MenuItem **items;
     size_t count;
     size_t capacity;
-    int currentWidth;
+    float currentWidth;
 } MenuBar;
 
 LayoutList *CreateLayoutList() {
@@ -240,11 +253,21 @@ void AddItemToMenuBar(Widget *menuBarWidget, Widget *menuItemWidget) {
         menuItemWidget->rect.x = menubar->currentWidth;
         menubar->currentWidth += menuItemWidget->rect.width;
     }
-    else {
-        menuItemWidget->rect.y += 20;
+    size_t count = menuitem->childs->count;
+
+    for (size_t i = 0; i < count; i++) {
+        MenuItem *childItem = menuitem->childs->items[i];
+        Widget *childWidget = childItem->super;
+        childItem->level = menuitem->level + 1;
+        if (childItem->level > 0) { // If is not the first level
+            //printf("soy %s y mi parent es %p\n",menuitem->text, menuitem->parent);
+            childWidget->rect.x = menuItemWidget->rect.x + (menuitem->parent == NULL ? 0 : menuItemWidget->rect.width);
+            childWidget->rect.y = menuitem->parent == NULL ? menuItemWidget->rect.y + (i+1)*20 : (i*20) + menuItemWidget->rect.y;
+            childWidget->rect.width = 100; 
+        }
+        AddItemToMenuBar(menuBarWidget, childWidget);
     }
-    
-    
+    printf("[AddItemToMenuBar] %s -> (%1.f,%1.f) level %zu\n", menuitem->text, menuItemWidget->rect.x, menuItemWidget->rect.y, menuitem->level);    
 }
 
 static Widget *BuildWidget(WidgetType wtype, Component *component) {
@@ -255,7 +278,6 @@ static Widget *BuildWidget(WidgetType wtype, Component *component) {
     widget->rect = (Rectangle){0};
     widget->onClick = NULL;
     widget->visible = true;
-    widget->active = true;
     return widget;
 }
 
@@ -344,7 +366,7 @@ Widget *CreateMenuBar() {
     menubar->items = (MenuItem**)malloc(sizeof(MenuItem*));
     menubar->count = 0;
     menubar->capacity = 0;
-    menubar->currentWidth = 0;
+    menubar->currentWidth = 0.0f;
     Widget *widget = BuildWidget(W_MENUBAR, (Component*)menubar);
     widget->rect = (Rectangle){0,0,GetScreenWidth(),40};
     return widget;
@@ -354,16 +376,31 @@ Widget *CreateMenuItem(Widget *parentMenuItemWidget, char *text) {
     MenuItem *parentMenuItem = (parentMenuItemWidget && parentMenuItemWidget->type == W_MENUITEM) ? (MenuItem*)parentMenuItemWidget->component : NULL;
     MenuItem *menuitem = (MenuItem*)malloc(sizeof(MenuItem));
     menuitem->text = text;
-    menuitem->parent = parentMenuItemWidget; 
+    menuitem->parent = parentMenuItem; 
     menuitem->isLeaf = true;
+    menuitem->level = 0;
+    menuitem->expanded = false;
+    MenuItemList *childsList = (MenuItemList*)malloc(sizeof(MenuItemList));
+    childsList->items = (MenuItem**)malloc(sizeof(MenuItem*));
+    childsList->count = 0;
+    childsList->capacity = 0;
+    menuitem->childs = childsList;
     Widget *widget = BuildWidget(W_MENUITEM, (Component*)menuitem);
+    menuitem->super = widget;
     int size = GetTextWidth(text);
     widget->rect = (Rectangle){0,0,size*2,20};
     if (parentMenuItem != NULL) {
         parentMenuItem->isLeaf = false; // Now the parent widget is not a leaf and should be a dropdownbox
         parentMenuItemWidget->active = false;
+        da_append(parentMenuItem->childs, menuitem);
+        widget->rect = (Rectangle) {
+            .x = parentMenuItemWidget->rect.x,
+            .y = parentMenuItemWidget->rect.y,
+            .width = parentMenuItemWidget->rect.width,
+            .height = parentMenuItemWidget->rect.height
+        };
     }
-    
+    printf("[CreateMenuItem] %s width %f\n", menuitem->text, widget->rect.x);
     return widget;
 }
 
@@ -445,28 +482,37 @@ static void RenderTextBox(Widget *widget) {
 static void RenderMenuItem(Widget *widget) {
     MenuItem *menuitem = (MenuItem*)widget->component;
     Layout *parent = widget->parent->parent;
-    char *xd[3] = {"XD", "Prueba", "Sisi"};
-    int active = 1;
-    int focus = 1;
-    if (menuitem->parent == NULL) {
-        GuiButton(widget->rect, menuitem->text);
-        
-    }
-    else {
-        DrawCircle(menuitem->parent->rect.x + menuitem->parent->rect.width - 7, menuitem->parent->rect.y + menuitem->parent->rect.height/2, 3, BLACK);
-        Rectangle rect = (Rectangle)widget->rect;
+    size_t childCount = menuitem->childs->count;
+    if (childCount > 0) {
+        DrawCircle(widget->rect.x + widget->rect.width - 7, widget->rect.y + widget->rect.height/2, 3, BLACK);
+        Rectangle rect = {
+            .x = widget->rect.x + (menuitem->parent == NULL ? 0 : widget->rect.width),
+            .y = widget->rect.y + (menuitem->parent == NULL ? 20 : 0),
+            .width = 100, // TODO: Change this
+            .height = childCount * 20
+        };
         widget->visible = true;
-        rect.width += 30;
-        rect.height += 25 * 3;
-        if (CheckCollisionPointRec(GetMousePosition(), menuitem->parent->rect)) {
-            widget->active = true;
+        DrawRectangleLinesEx(rect, 2, GREEN);
+        if (CheckCollisionPointRec(GetMousePosition(), widget->rect)) {
+            if (menuitem->parent == NULL || (menuitem->parent && menuitem->parent->expanded)) {
+                menuitem->expanded = true;
+            }
         }
         else if (!CheckCollisionPointRec(GetMousePosition(), rect)) {
-            widget->active = false;
+            menuitem->expanded = false; // By default, we do not expand if we are not in the widget rectangle
+            for (size_t i = 0; i < childCount; i++) {   // But if we find that one of our child is expanded, then we should keep this menu expanded as well
+                if (menuitem->childs->items[i]->expanded) {
+                    menuitem->expanded = true;
+                }
+            }
         }
-        if (widget->active) {
-            GuiListViewEx(rect, xd, 3, &active, &active, &focus);
-        }
+    }
+    MenuItem *parentMenuItem = menuitem->parent;
+    if (menuitem->parent == NULL) {
+        GuiLabelButton(widget->rect, menuitem->text);
+    }
+    else if (parentMenuItem && parentMenuItem->expanded) {
+        GuiButton(widget->rect, menuitem->text);
     }
 }
 

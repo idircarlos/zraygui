@@ -1,10 +1,7 @@
 #include "zraygui.h"
 
-Layout* root;
-Widget *button, *label;
-
-void my_callback(Vector2 mousePos) {
-    SetWidgetVisible(label, true);
+void exit_program(Vector2 mousePos) {
+    exit(0);
 }
 
 int main(void) {
@@ -12,21 +9,28 @@ int main(void) {
     int h = 600;
     InitWindow(w,h,"Hello world zraygui");
 
-    root = CreateLayout(NULL, L_NONE, WHITE);
-    button = CreateButton("Press me!");
-    label = CreateLabel("Hello, World!");
+    Layout *root = CreateLayout(NULL, L_NONE, WHITE);
 
-    SetWidgetPos(button, (Vector2){(w - GetWidgetWidth(button)) / 2, (h - GetWidgetHeight(button)) / 4});
-    SetWidgetPos(label, (Vector2){(w - GetWidgetWidth(label)) / 2, ((h - GetWidgetHeight(label)) / 2) + 15});
-    
-    SetWidgetVisible(label, false);
-
-    AddWidget(root, button);
-    AddWidget(root, label);
-    OnWidgetClick(button, my_callback);
     Widget *menuBar = CreateMenuBar();
+
     Widget *fileItem = CreateMenuItem(NULL, "File");
-    Widget *editItem = CreateMenuItem(fileItem, "Edit");
+        Widget *openItem = CreateMenuItem(fileItem, "Open");
+        Widget *saveItem = CreateMenuItem(fileItem, "Save");
+        Widget *saveAsItem = CreateMenuItem(fileItem, "Save as...");
+            Widget *saveAsTxtItem = CreateMenuItem(saveAsItem, "TXT");
+            Widget *saveAsAudioItem = CreateMenuItem(saveAsItem, "Audio...");
+                Widget *saveAsAudioMp3Item = CreateMenuItem(saveAsAudioItem, "MP3");
+                Widget *saveAsAudioWavItem = CreateMenuItem(saveAsAudioItem, "WAV");
+                Widget *saveAsAudioOggItem = CreateMenuItem(saveAsAudioItem, "OGG");
+            Widget *saveAsPdfItem = CreateMenuItem(saveAsItem, "PDF");
+        Widget *exitItem = CreateMenuItem(fileItem, "Exit");
+
+    Widget *editItem = CreateMenuItem(NULL, "Edit");
+        Widget *copyItem = CreateMenuItem(editItem, "Copy");
+        Widget *pasteItem = CreateMenuItem(editItem, "Paste");
+        Widget *undoItem = CreateMenuItem(editItem, "Undo");
+        Widget *redoItem = CreateMenuItem(editItem, "Redo");
+
     Widget *toolsItem = CreateMenuItem(NULL, "Tools");
     Widget *propertiesItem = CreateMenuItem(NULL, "Properties");
     Widget *optionsItem = CreateMenuItem(NULL, "Options");
@@ -39,7 +43,9 @@ int main(void) {
     AddItemToMenuBar(menuBar, propertiesItem);
     AddItemToMenuBar(menuBar, optionsItem);
     AddItemToMenuBar(menuBar, helpItem);
-    char *nose [3] = {"Prueba","Dos","Ole"};
+
+    OnWidgetClick(exitItem, exit_program);
+    
     while (!WindowShouldClose()) {
         BeginDrawing();
             ClearBackground(WHITE);
