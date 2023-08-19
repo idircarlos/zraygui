@@ -30,7 +30,7 @@ To begin using **zraygui** in your raylib-based project, follow these steps:
 
 ## Example
 
-```
+```c
 #include "../src/zraygui.h"
 
 Layout* root;
