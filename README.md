@@ -2,7 +2,7 @@
 
 #### This software is unfinished!!
 
-**zraygui** is an attempt to transform the well-known **raygui** library, which currently implements an immediate mode GUI (ImGUI) using the **raylib** framework, into a **retained mode GUI**. This transition from immediate mode to retained mode brings about a significant shift in how user interfaces are managed and drawn.
+**zraygui** is an attempt of transforming the well-known **raygui** library, which currently implements an immediate mode GUI (ImGUI) using the **raylib** framework, into a **retained mode GUI**. This transition from immediate mode to retained mode brings about a significant shift in how user interfaces are managed and drawn.
 
 ## What is raylib and raygui?
 
