@@ -78,6 +78,7 @@ typedef struct Button {
 
 typedef struct Label {
     char *text;
+    Color color;
 } Label;
 
 typedef struct CheckBox {
@@ -141,6 +142,30 @@ LayoutList *CreateLayoutList() {
     return list;
 }
 
+Rectangle GetLayoutBounds(Layout *layout) {
+    return layout->rect;
+}
+
+Vector2 GetLayoutPos(Layout *layout) {
+    return (Vector2){layout->rect.x, layout->rect.y};
+}
+
+int GetLayoutX(Layout *layout) {
+    return layout->rect.x;
+}
+
+int GetLayoutY(Layout *layout) {
+    return layout->rect.y;
+}
+
+int GetLayoutWidth(Layout *layout) {
+    return layout->rect.width;
+}
+
+int GetLayoutHeight(Layout *layout) {
+    return layout->rect.height;
+}
+
 Rectangle GetWidgetBounds(Widget *widget) {
     return widget->rect;
 }
@@ -172,6 +197,12 @@ Vector2 GetWidgetPos(Widget *widget) {
 void SetWidgetPos(Widget *widget, Vector2 pos) {
     widget->rect.x = pos.x;
     widget->rect.y = pos.y;
+}
+
+void SetLabelColor(Widget *labelWidget, Color color) {
+    if (labelWidget->type != W_LABEL) return;
+    Label *label = (Label*)labelWidget->component;
+    label->color = color;
 }
 
 static void UpdateLayout(Layout *parent) {
@@ -292,6 +323,7 @@ Widget *CreateButton(char *text) {
 Widget *CreateLabel(char *text) {
     Label *label = (Label*)malloc(sizeof(Label));
     label->text = malloc(1024*sizeof(char));
+    label->color = GetColor(GuiGetStyle(LABEL, TEXT));
     strcpy(label->text, text);
     Widget *widget = BuildWidget(W_LABEL, (Component*)label);
     widget->rect = (Rectangle){
@@ -302,9 +334,7 @@ Widget *CreateLabel(char *text) {
     };
     int width = GetTextWidth(text);
     int size = MeasureText(text, (float)GuiGetStyle(DEFAULT, TEXT_SIZE));
-    
     widget->rect.width = size;
-
     return widget;
 }
 
@@ -424,7 +454,7 @@ static void RenderButton(Widget *widget) {
 
 static void RenderLabel(Widget *widget) {
     Label *label = (Label*)widget->component;
-    DrawText(label->text, widget->rect.x, widget->rect.y, GuiGetStyle(LABEL, TEXT_SIZE), GetColor(GuiGetStyle(LABEL, TEXT)));
+    DrawText(label->text, widget->rect.x, widget->rect.y, GuiGetStyle(LABEL, TEXT_SIZE), label->color);
 }
 
 static void RenderCheckbox(Widget *widget) {

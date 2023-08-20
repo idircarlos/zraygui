@@ -1,4 +1,4 @@
-#include "zraygui.h"
+#include "../src/zraygui.h"
 
 void exit_program(Vector2 mousePos) {
     exit(0);
@@ -52,6 +52,6 @@ int main(void) {
             RenderWindow(root);
         EndDrawing();
     }
-    
+
     return 0;
 }
