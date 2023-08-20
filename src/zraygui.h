@@ -1,3 +1,6 @@
+#ifndef ZRAYGUI_H
+#define ZRAYGUI_H
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -699,3 +702,5 @@ void OnWidgetClick(Widget *widget, void (*callback)(Vector2 mousePos)) {
 void SetWidgetVisible(Widget *widget, bool visible) {
     widget->visible = visible;
 }
+
+#endif // ZRAYGUI_H
