@@ -78,21 +78,18 @@ struct _layout_list {
 };
 
 typedef struct Button {
-    char *text;
+    // Empty
 } Button;
 
 typedef struct Label {
-    char *text;
     Color color;
 } Label;
 
 typedef struct CheckBox {
-    char *text;
     bool checked;
 } CheckBox;
 
 typedef struct Radio {
-    char *text;
     bool checked;
 } Radio;
 
@@ -104,7 +101,7 @@ typedef struct ComboBox {
 } ComboBox;
 
 typedef struct GroupBox {
-    char *title;
+    // Empty
 } GroupBox;
 
 typedef struct Separator {
@@ -374,7 +371,6 @@ Widget *CreateButton(char *text) {
 
 Widget *CreateLabel(char *text) {
     Label *label = (Label*)malloc(sizeof(Label));
-    label->text = malloc(1024*sizeof(char));
     label->color = GetColor(GuiGetStyle(LABEL, TEXT));
     Widget *widget = BuildWidget(W_LABEL, (Component*)label);
     widget->rect = (Rectangle){
@@ -422,7 +418,6 @@ Widget *CreateComboBox(Rectangle rect, char **options, size_t numOptions) {
 
 Widget *CreateGroupBox(Rectangle rect, char *title) {
     GroupBox *groupbox = (GroupBox*)malloc(sizeof(GroupBox));
-    groupbox->title = title;
     Widget *widget = BuildWidget(W_GROUPBOX, (Component*)groupbox);
     widget->rect = rect;
     widget->label = strdup(title);
