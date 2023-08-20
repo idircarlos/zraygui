@@ -10,7 +10,7 @@ void my_callback(Vector2 mousePos) {
 int main(void) {
     int w = 250;
     int h = 100;
-    InitWindow(w,h,"Hello world zraygui");
+    InitWindow(w,h,"Hello World - zraygui");
 
     root = CreateLayout(NULL, L_NONE, WHITE);
     button = CreateButton("Press me!");

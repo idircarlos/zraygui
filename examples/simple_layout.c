@@ -3,7 +3,7 @@
 int main(void) {
     int w = 900;
     int h = 600;
-    InitWindow(w, h, "Hello world zraygui");
+    InitWindow(w, h, "Simple Layout - zraygui");
 
     Layout* root = CreateLayout(NULL, L_HORZ, WHITE);
 

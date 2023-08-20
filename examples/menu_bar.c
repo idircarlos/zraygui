@@ -7,7 +7,7 @@ void exit_program(Vector2 mousePos) {
 int main(void) {
     int w = 750;
     int h = 600;
-    InitWindow(w,h,"Hello world zraygui");
+    InitWindow(w,h,"Menu Bar - zraygui");
 
     Layout *root = CreateLayout(NULL, L_NONE, WHITE);
 

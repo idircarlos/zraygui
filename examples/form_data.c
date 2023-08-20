@@ -136,15 +136,13 @@ void BuildConsoleLayout(Layout *consoleLayout) {
 }
 
 int main(void) {
-
-    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Hello world zraygui");
+    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Form Data - zraygui");
 
     Layout *root = CreateLayout(NULL, L_HORZ, BLANK);
     Layout *left = CreateLayout(root, L_VERT, BLANK);
         Layout *formLayout = CreateLayout(left, L_NONE, BLANK);
         Layout *consoleLayout = CreateLayout(left, L_NONE, BLANK);
     Layout *right = CreateLayout(root, L_NONE, BLANK);
-
 
     BuildFormLayout(formLayout);
     BuildResultLayout(right);
