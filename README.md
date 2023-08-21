@@ -31,12 +31,13 @@
 To begin using **zraygui** in your raylib-based project, follow these steps:
 
 1. Copy the *zraygui.h* file from the src folder and paste it in your project workspace.
-2. Include the header file in your sources.
+2. Define the **ZRAYGUI_IMPLEMENTATION** and include the header file in your sources.
 3. Start creating your beautiful Raylib GUI applications with **zraygui**!
 
 ## Example
 
 ```c
+#define ZRAYGUI_IMPLEMENTATION
 #include "../src/zraygui.h"
 
 Layout* root;
