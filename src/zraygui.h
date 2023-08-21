@@ -822,7 +822,6 @@ static void RenderLayout(Layout *layout) {
 }
 
 static void CheckMouse(Widget *widget) {
-    
     if (!widget || !widget->active) return;
     DEBUG_WIDGET(widget);
     bool pressed = IsMouseButtonPressed(MOUSE_LEFT_BUTTON);
@@ -833,21 +832,14 @@ static void CheckMouse(Widget *widget) {
     MouseEvent me;
     MouseEvent prevMe = widget->widgetStatus;
     
-    if (pressed && inside) {
-        me = ME_CLICK;
-    } else if (down && inside) {
-        if (prevMe == ME_CLICK || prevMe == ME_DOWN) {
-            me = ME_DOWN;
-        } else {
-            me = ME_NONE;
-        }
-    } else if (released && prevMe == ME_DOWN) {
-        me = ME_RELEASE;
-    } else if (inside) {
-        me = ME_HOVER;
-    } else {
-        me = ME_NONE;
-    }
+    if (pressed && inside) me = ME_CLICK; 
+    else if (down && inside) {
+        if (prevMe == ME_CLICK || prevMe == ME_DOWN) me = ME_DOWN;
+        else me = ME_NONE;
+    } 
+    else if (released && prevMe == ME_DOWN) me = ME_RELEASE;
+    else if (inside) me = ME_HOVER;
+    else me = ME_NONE;
 
     if (me == ME_CLICK && widget->mouseListener.OnClick) widget->mouseListener.OnClick(GetMousePosition());
     else if (me == ME_HOVER && widget->mouseListener.OnHover) widget->mouseListener.OnHover(GetMousePosition());
