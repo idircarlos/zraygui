@@ -13,6 +13,12 @@
 
 **zraygui** takes the fundamental concept of **raygui** and evolves it into a **retained mode GUI** based of Layouts/Panels and Widgets. In retained mode, GUI elements persist beyond the frame they were created in. This approach allows for a more structured and organized GUI construction, particularly for complex applications.
 
+### Features Check List:
+
+ - [ ] Implement almost every Gui control of raygui.
+ - [x] Implement Radio Buttons.
+ - [x] Implement Menu bar with sub menus.
+
 ### Key Benefits of zraygui:
 
 1. **Dynamic Content:** Retained mode accommodates dynamic content changes seamlessly. Adding, removing, or altering elements during runtime is more natural and less error-prone.
