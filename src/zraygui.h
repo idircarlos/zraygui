@@ -7,22 +7,20 @@
     #define ZRAYGUIAPI       // Functions defined as 'extern' by default (implicit specifiers)
 #endif
 
-
 #include <raylib.h>
 
 #define RAYGUI_IMPLEMENTATION
 #include "../include/raygui.h"
 
-#define DA_INIT_CAP 20
+#define DA_INIT_CAP 10
 
 #define da_append(da, item)                                                          \
     do {                                                                             \
         if ((da)->count >= (da)->capacity) {                                         \
             (da)->capacity = (da)->capacity == 0 ? DA_INIT_CAP : (da)->capacity*2;   \
             (da)->items = realloc((da)->items, (da)->capacity*sizeof(*(da)->items)); \
-            assert((da)->items != NULL && "Buy more RAM lol");                   \
+            assert((da)->items != NULL && "Buy more RAM lol");                       \
         }                                                                            \
-                                                                                     \
         (da)->items[(da)->count++] = (item);                                         \
     } while (0)
 
@@ -35,7 +33,7 @@ typedef struct _widget Widget;
 typedef struct _menu_item_list MenuItemList;
 
 typedef enum {
-    L_NONE,
+    L_NONE = 0,
     L_HORZ,
     L_VERT
 } LayoutType;
