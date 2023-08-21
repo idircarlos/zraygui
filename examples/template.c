@@ -1,3 +1,4 @@
+#define ZRAYGUI_IMPLEMENTATION
 #include "../src/zraygui.h"
 
 #define SCREEN_WIDTH 900

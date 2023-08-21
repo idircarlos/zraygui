@@ -1,3 +1,4 @@
+#define ZRAYGUI_IMPLEMENTATION
 #include "../src/zraygui.h"
 
 void exit_program(Vector2 mousePos) {
