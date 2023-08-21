@@ -1,9 +1,13 @@
 #ifndef ZRAYGUI_H
 #define ZRAYGUI_H
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <assert.h>
+#define ZRAYGUI_VERSION  "0.1-dev"
+
+#ifndef ZRAYGUIAPI
+    #define ZRAYGUIAPI       // Functions defined as 'extern' by default (implicit specifiers)
+#endif
+
+
 #include <raylib.h>
 
 #define RAYGUI_IMPLEMENTATION
@@ -23,8 +27,7 @@
     } while (0)
 
 #define ARRAY_SIZE(arr) sizeof(arr)/sizeof(char*)
-
-#define PRINT_RECTANGLE(rect) printf("Rectangle[%1.f, %1.f, %1.f, %1.f]\n", rect.x, rect.y, rect.width, rect.height);
+#define DEBUG_RECTANGLE(rect) printf("Rectangle[%1.f, %1.f, %1.f, %1.f]\n", rect.x, rect.y, rect.width, rect.height);
 
 typedef struct _component Component;    // Generic empty struct used to contain the pointer to the specific widget (button, label...)
 typedef struct _layout_list LayoutList;
@@ -142,13 +145,93 @@ typedef struct ListView {
     size_t capacity;
 } ListView;
 
-LayoutList *CreateLayoutList() {
-    LayoutList *list = (LayoutList*)malloc(sizeof(LayoutList));
-    list->items = (Layout**)malloc(sizeof(Layout*));
-    list->capacity = 0;
-    list->count = 0;
-    return list;
-}
+ZRAYGUIAPI Rectangle GetLayoutBounds(Layout *layout);
+ZRAYGUIAPI Vector2 GetLayoutPos(Layout *layout);
+ZRAYGUIAPI int GetLayoutX(Layout *layout);
+ZRAYGUIAPI int GetLayoutY(Layout *layout);
+ZRAYGUIAPI int GetLayoutWidth(Layout *layout);
+ZRAYGUIAPI int GetLayoutHeigth(Layout *layout);
+ZRAYGUIAPI Rectangle GetWidgetBounds(Widget *widget);
+ZRAYGUIAPI void SetWidgetLabel(Widget *widget, char *label);
+ZRAYGUIAPI char* GetTextBoxText(Widget *textBoxWidget);
+ZRAYGUIAPI void SetTextBoxText(Widget *textBoxWidget, char *text);
+ZRAYGUIAPI char* GetComboBoxOption(Widget *comboBoxWidget);
+ZRAYGUIAPI void SetComboBoxOption(Widget *comboBoxWidget, int index);
+ZRAYGUIAPI void ClearListView(Widget *listViewWidget);
+ZRAYGUIAPI void SetWidgetBounds(Widget *widget, Rectangle rect);
+ZRAYGUIAPI int GetWidgetX(Widget *widget);
+ZRAYGUIAPI int GetWidgetY(Widget *widget);
+ZRAYGUIAPI int GetWidgetWidth(Widget *widget);
+ZRAYGUIAPI int GetWidgetHeigth(Widget *widget);
+ZRAYGUIAPI Vector2 GetWidgetPos(Widget *widget);
+ZRAYGUIAPI void SetLabelColor(Widget *labelWidget, Color color);
+
+ZRAYGUIAPI Layout *CreateLayout(Layout *parent, LayoutType type, Color c);
+ZRAYGUIAPI Widget *CreateButton(char *text);
+ZRAYGUIAPI Widget *CreateLabel(char *text);
+ZRAYGUIAPI Widget *CreateCheckBox(char *text);
+ZRAYGUIAPI Widget *CreateRadio(char *text);
+ZRAYGUIAPI Widget *CreateComboBox(Rectangle rect, char **options, size_t numOptions);
+ZRAYGUIAPI Widget *CreateGroupBox(Rectangle rect, char *title);
+ZRAYGUIAPI Widget *CreateSeparator(int x, int y, int width);
+ZRAYGUIAPI Widget *CreateTextBox(Rectangle rect);
+ZRAYGUIAPI Widget *CreateMenuBar();
+ZRAYGUIAPI Widget *CreateMenuItem(Widget *parentMenuItemWidget, char *text);
+ZRAYGUIAPI Widget *CreateListView(Rectangle rect);
+
+ZRAYGUIAPI void AddWidget(Layout *layout, Widget *widget);
+ZRAYGUIAPI void AddItemToMenuBar(Widget *menuBarWidget, Widget *menuItemWidget);
+ZRAYGUIAPI void AddItemToListView(Widget *listViewWidget, char *item);
+
+ZRAYGUIAPI void RenderWindow(Layout *rootLayout);
+ZRAYGUIAPI void OnWidgetClick(Widget *widget, void (*callback)(Vector2 mousePos));
+ZRAYGUIAPI void SetWidgetVisible(Widget *widget, bool visible);
+
+
+
+#endif // ZRAYGUI_H
+
+/***********************************************************************************
+*
+*   ZRAYGUI IMPLEMENTATION
+*
+************************************************************************************/
+
+#if defined(ZRAYGUI_IMPLEMENTATION)
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <assert.h>
+
+//----------------------------------------------------------------------------------
+// Module specific Functions Declaration
+//----------------------------------------------------------------------------------
+
+static LayoutList *CreateLayoutList();
+static void UpdateLayout(Layout *parent);
+static void AddToLayout(Layout *parent, Layout *children);
+static void RenderLayout(Layout *layout);
+
+static void RenderWidget(Widget *widget);
+static void RenderListView(Widget *widget);
+static void RenderMenuBar(Widget *widget);
+static void RenderMenuItem(Widget *widget);
+static void RenderTextBox(Widget *widget);
+static void RenderSeparator(Widget *widget);
+static void RenderGroupBox(Widget *widget);
+static void RenderComboBox(Widget *widget);
+static void RenderRadio(Widget *widget);
+static void RenderCheckbox(Widget *widget);
+static void RenderLabel(Widget *widget);
+static void RenderButton(Widget *widget);
+
+static void DrawTextCentered(char *text, int fontSize, Rectangle rect);
+static bool CheckMouse(Widget *widget);
+static void CheckMouseAll(Layout *layout);
+
+//----------------------------------------------------------------------------------
+// Gui Controls Functions Definition
+//----------------------------------------------------------------------------------
 
 Rectangle GetLayoutBounds(Layout *layout) {
     return layout->rect;
@@ -245,43 +328,6 @@ void SetLabelColor(Widget *labelWidget, Color color) {
     if (labelWidget->type != W_LABEL) return;
     Label *label = (Label*)labelWidget->component;
     label->color = color;
-}
-
-static void UpdateLayout(Layout *parent) {
-    int offsetx = parent->rect.width  / parent->childs->count;
-    int offsety = parent->rect.height / parent->childs->count;
-    for (size_t i = 0; i < parent->childs->count; i++) {
-        Layout *children = parent->childs->items[i];
-        switch (parent->type) {
-            case L_HORZ:
-                children->rect.x = parent->rect.x + (i*offsetx);
-                children->rect.y = parent->rect.y;
-                children->rect.width = offsetx;
-                children->rect.height = parent->rect.height;
-                if (parent->widget) SetWidgetBounds(parent->widget, parent->rect);
-                break;
-
-            case L_VERT:
-                children->rect.x = parent->rect.x;
-                children->rect.y = parent->rect.y + (i*offsety);
-                children->rect.width = parent->rect.width;
-                children->rect.height = offsety;
-                if (parent->widget) SetWidgetBounds(parent->widget, parent->rect);
-                break;
-            case L_NONE:
-                break;
-            default:
-                assert(0 && "Unreachable");
-        }
-        UpdateLayout(children);
-    }
-}
-
-static void AddToLayout(Layout *parent, Layout *children) {
-    if (!parent) return;
-    da_append(parent->childs, children);
-    children->parent = parent;
-    UpdateLayout(parent);
 }
 
 Layout *CreateLayout(Layout *parent, LayoutType type, Color c) {
@@ -493,17 +539,28 @@ Widget *CreateListView(Rectangle rect) {
     return widget;
 }
 
+void RenderWindow(Layout *rootLayout) {
+    rootLayout->rect.width = GetScreenWidth();
+    rootLayout->rect.height = GetScreenHeight();
+    UpdateLayout(rootLayout);
+    RenderLayout(rootLayout);
+}
+
+void OnWidgetClick(Widget *widget, void (*callback)(Vector2 mousePos)) {
+    widget->onClick = callback;
+}
+
+void SetWidgetVisible(Widget *widget, bool visible) {
+    widget->visible = visible;
+}
+
+//----------------------------------------------------------------------------------
+// Module specific Functions Definition
+//----------------------------------------------------------------------------------
+
 static void DrawTextCentered(char *text, int fontSize, Rectangle rect) {
     int size = MeasureText(text, fontSize);
     DrawText(text, rect.x + (rect.width/2) - (size/2),rect.y + rect.height/2, fontSize, BLACK);
-}
-
-static bool CheckMouse(Widget *widget) {
-    if (!widget) return false;
-    if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && CheckCollisionPointRec(GetMousePosition(), widget->rect)) {
-        return true;
-    }
-    return false;
 }
 
 static void RenderButton(Widget *widget) {
@@ -661,14 +718,49 @@ static void RenderWidget(Widget *widget) {
     }
 }
 
-static void CheckMouseAll(Layout *layout) {
-    LayoutList *childs = layout->childs;
-    for (size_t i = 0; i < childs->count; i++) {
-        if (CheckMouse(childs->items[i]->widget)) {
-            if (childs->items[i]->widget->onClick) childs->items[i]->widget->onClick(GetMousePosition());
+static LayoutList *CreateLayoutList() {
+    LayoutList *list = (LayoutList*)malloc(sizeof(LayoutList));
+    list->items = (Layout**)malloc(sizeof(Layout*));
+    list->capacity = 0;
+    list->count = 0;
+    return list;
+}
+
+static void UpdateLayout(Layout *parent) {
+    int offsetx = parent->rect.width  / parent->childs->count;
+    int offsety = parent->rect.height / parent->childs->count;
+    for (size_t i = 0; i < parent->childs->count; i++) {
+        Layout *children = parent->childs->items[i];
+        switch (parent->type) {
+            case L_HORZ:
+                children->rect.x = parent->rect.x + (i*offsetx);
+                children->rect.y = parent->rect.y;
+                children->rect.width = offsetx;
+                children->rect.height = parent->rect.height;
+                if (parent->widget) SetWidgetBounds(parent->widget, parent->rect);
+                break;
+
+            case L_VERT:
+                children->rect.x = parent->rect.x;
+                children->rect.y = parent->rect.y + (i*offsety);
+                children->rect.width = parent->rect.width;
+                children->rect.height = offsety;
+                if (parent->widget) SetWidgetBounds(parent->widget, parent->rect);
+                break;
+            case L_NONE:
+                break;
+            default:
+                assert(0 && "Unreachable");
         }
-        CheckMouseAll(childs->items[i]);
+        UpdateLayout(children);
     }
+}
+
+static void AddToLayout(Layout *parent, Layout *children) {
+    if (!parent) return;
+    da_append(parent->childs, children);
+    children->parent = parent;
+    UpdateLayout(parent);
 }
 
 static void RenderLayout(Layout *layout) {
@@ -683,19 +775,22 @@ static void RenderLayout(Layout *layout) {
     }
 }
 
-void RenderWindow(Layout *rootLayout) {
-    rootLayout->rect.width = GetScreenWidth();
-    rootLayout->rect.height = GetScreenHeight();
-    UpdateLayout(rootLayout);
-    RenderLayout(rootLayout);
+static bool CheckMouse(Widget *widget) {
+    if (!widget) return false;
+    if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && CheckCollisionPointRec(GetMousePosition(), widget->rect)) {
+        return true;
+    }
+    return false;
 }
 
-void OnWidgetClick(Widget *widget, void (*callback)(Vector2 mousePos)) {
-    widget->onClick = callback;
+static void CheckMouseAll(Layout *layout) {
+    LayoutList *childs = layout->childs;
+    for (size_t i = 0; i < childs->count; i++) {
+        if (CheckMouse(childs->items[i]->widget)) {
+            if (childs->items[i]->widget->onClick) childs->items[i]->widget->onClick(GetMousePosition());
+        }
+        CheckMouseAll(childs->items[i]);
+    }
 }
 
-void SetWidgetVisible(Widget *widget, bool visible) {
-    widget->visible = visible;
-}
-
-#endif // ZRAYGUI_H
+#endif // ZRAYGUI_IMPLEMENTATION
