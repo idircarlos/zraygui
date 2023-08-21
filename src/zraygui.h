@@ -72,12 +72,12 @@ typedef enum MouseEvent {
     ME_RELEASE
 } MouseEvent;
 
-typedef struct MouseListener {
+typedef struct MouseListeners {
     void (*OnClick)(Vector2 mousePos);
     void (*OnHover)(Vector2 mousePos);
     void (*OnPressed)(Vector2 mousePos);
     void (*OnReleased)(Vector2 mousePos);
-} MouseListener;
+} MouseListeners;
 
 struct _widget {
     Layout *parent;
@@ -89,7 +89,7 @@ struct _widget {
     bool active;
     void (*onClick)(Vector2 mousePos);
     MouseEvent widgetStatus;
-    MouseListener mouseListener;
+    MouseListeners mouseListener;
 };
 
 struct _layout_list {
@@ -202,8 +202,13 @@ ZRAYGUIAPI void AddItemToMenuBar(Widget *menuBarWidget, Widget *menuItemWidget);
 ZRAYGUIAPI void AddItemToListView(Widget *listViewWidget, char *item);
 
 ZRAYGUIAPI void RenderWindow(Layout *rootLayout);
-ZRAYGUIAPI void OnWidgetClick(Widget *widget, void (*callback)(Vector2 mousePos));
 ZRAYGUIAPI void SetWidgetVisible(Widget *widget, bool visible);
+
+ZRAYGUIAPI void SetWidgetMouseListeners(Widget *widget, MouseListeners listeners);
+ZRAYGUIAPI void SetWidgetOnClick(Widget *widget, void (*callback)(Vector2 mousePos));
+ZRAYGUIAPI void SetWidgetOnPressed(Widget *widget, void (*callback)(Vector2 mousePos));
+ZRAYGUIAPI void SetWidgetOnHover(Widget *widget, void (*callback)(Vector2 mousePos));
+ZRAYGUIAPI void SetWidgetOnReleased(Widget *widget, void (*callback)(Vector2 mousePos));
 
 
 
@@ -419,9 +424,10 @@ static Widget *BuildWidget(WidgetType wtype, Component *component) {
     widget->component = component;
     widget->rect = (Rectangle){0};
     widget->onClick = NULL;
+    widget->active = true;
     widget->visible = true;
     widget->label = NULL;
-    widget->mouseListener = (MouseListener){0};
+    widget->mouseListener = (MouseListeners){0};
     widget->widgetStatus = ME_NONE;
     return widget;
 }
@@ -565,8 +571,24 @@ void RenderWindow(Layout *rootLayout) {
     RenderLayout(rootLayout);
 }
 
-void OnWidgetClick(Widget *widget, void (*callback)(Vector2 mousePos)) {
-    widget->onClick = callback;
+void SetWidgetMouseListeners(Widget *widget, MouseListeners listeners) {
+    widget->mouseListener = listeners;
+}
+
+void SetWidgetOnClick(Widget *widget, void (*callback)(Vector2 mousePos)) {
+    widget->mouseListener.OnClick = callback;
+}
+
+void SetWidgetOnPressed(Widget *widget, void (*callback)(Vector2 mousePos)) {
+    widget->mouseListener.OnPressed = callback;
+}
+
+void SetWidgetOnHover(Widget *widget, void (*callback)(Vector2 mousePos)) {
+    widget->mouseListener.OnHover = callback;
+}
+
+void SetWidgetOnReleased(Widget *widget, void (*callback)(Vector2 mousePos)) {
+    widget->mouseListener.OnReleased = callback;
 }
 
 void SetWidgetVisible(Widget *widget, bool visible) {

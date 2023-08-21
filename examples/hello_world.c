@@ -24,7 +24,8 @@ int main(void) {
 
     AddWidget(root, button);
     AddWidget(root, label);
-    OnWidgetClick(button, my_callback);
+    
+    SetWidgetOnClick(button, my_callback);
 
     while (!WindowShouldClose()) {
         BeginDrawing();

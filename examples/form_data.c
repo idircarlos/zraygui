@@ -100,7 +100,7 @@ void BuildFormLayout(Layout *formLayout) {
     AddWidget(formLayout, ageBox);
     AddWidget(formLayout, gendreBox);
 
-    OnWidgetClick(resetButton, reset_form);
+    SetWidgetOnClick(resetButton, reset_form);
 }
 
 void BuildResultLayout(Layout *resultLayout) {
@@ -110,7 +110,7 @@ void BuildResultLayout(Layout *resultLayout) {
     AddWidget(resultLayout, resultBox);
     AddWidget(resultLayout, listView);
 
-    OnWidgetClick(submitButton, submit_form);
+    SetWidgetOnClick(submitButton, submit_form);
 }
 
 void BuildConsoleLayout(Layout *consoleLayout) {
@@ -132,8 +132,8 @@ void BuildConsoleLayout(Layout *consoleLayout) {
     AddWidget(consoleLayout, clearButton);
     AddWidget(consoleLayout, exitButton);
 
-    OnWidgetClick(clearButton, clear_table);
-    OnWidgetClick(exitButton, exit_program);
+    SetWidgetOnClick(clearButton, clear_table);
+    SetWidgetOnClick(exitButton, exit_program);
 }
 
 int main(void) {

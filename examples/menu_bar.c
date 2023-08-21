@@ -45,7 +45,11 @@ int main(void) {
     AddItemToMenuBar(menuBar, optionsItem);
     AddItemToMenuBar(menuBar, helpItem);
 
-    OnWidgetClick(exitItem, exit_program);      // Add an onClick listener. When the exit button of the menu bar is clicked, the program will finish.
+    MouseListeners ml = {
+        .OnClick = exit_program,
+    };
+
+    SetWidgetMouseListeners(exitItem, ml);      // Add an onClick listener. When the exit button of the menu bar is clicked, the program will finish.
     
     while (!WindowShouldClose()) {
         BeginDrawing();
