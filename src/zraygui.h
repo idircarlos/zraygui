@@ -26,6 +26,8 @@
 
 #define ARRAY_SIZE(arr) sizeof(arr)/sizeof(char*)
 #define DEBUG_RECTANGLE(rect) printf("Rectangle[%1.f, %1.f, %1.f, %1.f]\n", rect.x, rect.y, rect.width, rect.height);
+#define DEBUG_WIDGET(w) printf("Widget[%d, %s, act = %d, visi = %d]\n", w->type, w->label, w->active, w->visible);
+
 
 typedef struct _component Component;    // Generic empty struct used to contain the pointer to the specific widget (button, label...)
 typedef struct _layout_list LayoutList;
@@ -61,6 +63,22 @@ typedef struct Layout {
     LayoutList *childs;
 } Layout;
 
+// ME_NONE < ME_HOVER < ME_CLICK < ME_DOWN < ME_RELEASE
+typedef enum MouseEvent {
+    ME_NONE = 0,
+    ME_HOVER,
+    ME_CLICK,
+    ME_DOWN,
+    ME_RELEASE
+} MouseEvent;
+
+typedef struct MouseListener {
+    void (*OnClick)(Vector2 mousePos);
+    void (*OnHover)(Vector2 mousePos);
+    void (*OnPressed)(Vector2 mousePos);
+    void (*OnReleased)(Vector2 mousePos);
+} MouseListener;
+
 struct _widget {
     Layout *parent;
     Rectangle rect;
@@ -70,6 +88,8 @@ struct _widget {
     bool visible;
     bool active;
     void (*onClick)(Vector2 mousePos);
+    MouseEvent widgetStatus;
+    MouseListener mouseListener;
 };
 
 struct _layout_list {
@@ -219,13 +239,12 @@ static void RenderSeparator(Widget *widget);
 static void RenderGroupBox(Widget *widget);
 static void RenderComboBox(Widget *widget);
 static void RenderRadio(Widget *widget);
-static void RenderCheckbox(Widget *widget);
+static void RenderCheckBox(Widget *widget);
 static void RenderLabel(Widget *widget);
 static void RenderButton(Widget *widget);
 
 static void DrawTextCentered(char *text, int fontSize, Rectangle rect);
-static bool CheckMouse(Widget *widget);
-static void CheckMouseAll(Layout *layout);
+static void CheckMouse(Widget *widget);
 
 //----------------------------------------------------------------------------------
 // Gui Controls Functions Definition
@@ -402,6 +421,8 @@ static Widget *BuildWidget(WidgetType wtype, Component *component) {
     widget->onClick = NULL;
     widget->visible = true;
     widget->label = NULL;
+    widget->mouseListener = (MouseListener){0};
+    widget->widgetStatus = ME_NONE;
     return widget;
 }
 
@@ -571,7 +592,7 @@ static void RenderLabel(Widget *widget) {
     DrawText(widget->label, widget->rect.x, widget->rect.y, GuiGetStyle(LABEL, TEXT_SIZE), label->color);
 }
 
-static void RenderCheckbox(Widget *widget) {
+static void RenderCheckBox(Widget *widget) {
     CheckBox *checkbox = (CheckBox*)widget->component;
     GuiCheckBox(widget->rect, widget->label, &checkbox->checked);
 }
@@ -635,11 +656,13 @@ static void RenderMenuItem(Widget *widget) {
             .width = 100, // TODO: Change this
             .height = childCount * 20
         };
-        widget->visible = true;
         DrawRectangleLinesEx(rect, 2, GREEN);
         if (CheckCollisionPointRec(GetMousePosition(), widget->rect)) {
             if (menuitem->parent == NULL || (menuitem->parent && menuitem->parent->expanded)) {
                 menuitem->expanded = true;
+                for (size_t i = 0; i < childCount; i++) {   // But if we find that one of our child is expanded, then we should keep this menu expanded as well
+                    menuitem->childs->items[i]->super->active = true;   // also, set all child widgets to active, so the listeners can handle events
+                }
             }
         }
         else if (!CheckCollisionPointRec(GetMousePosition(), rect)) {
@@ -647,6 +670,11 @@ static void RenderMenuItem(Widget *widget) {
             for (size_t i = 0; i < childCount; i++) {   // But if we find that one of our child is expanded, then we should keep this menu expanded as well
                 if (menuitem->childs->items[i]->expanded) {
                     menuitem->expanded = true;
+                }
+            }
+            if (!menuitem->expanded) {
+                for (size_t i = 0; i < childCount; i++) {   
+                    menuitem->childs->items[i]->super->active = false;   // now deactivete widgets that are not expanded
                 }
             }
         }
@@ -685,7 +713,7 @@ static void RenderWidget(Widget *widget) {
             RenderLabel(widget);
             break;
         case W_CHECKBOX:
-            RenderCheckbox(widget);
+            RenderCheckBox(widget);
             break;
         case W_RADIO:
             RenderRadio(widget);
@@ -762,9 +790,7 @@ static void AddToLayout(Layout *parent, Layout *children) {
 }
 
 static void RenderLayout(Layout *layout) {
-    if(layout->widget && layout->widget->onClick && CheckMouse(layout->widget)) {
-        layout->widget->onClick(GetMousePosition());
-    }
+    CheckMouse(layout->widget);
     DrawRectangleRec(layout->rect, layout->color);
     RenderWidget(layout->widget);
     LayoutList *childs = layout->childs;
@@ -773,22 +799,40 @@ static void RenderLayout(Layout *layout) {
     }
 }
 
-static bool CheckMouse(Widget *widget) {
-    if (!widget) return false;
-    if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && CheckCollisionPointRec(GetMousePosition(), widget->rect)) {
-        return true;
-    }
-    return false;
-}
-
-static void CheckMouseAll(Layout *layout) {
-    LayoutList *childs = layout->childs;
-    for (size_t i = 0; i < childs->count; i++) {
-        if (CheckMouse(childs->items[i]->widget)) {
-            if (childs->items[i]->widget->onClick) childs->items[i]->widget->onClick(GetMousePosition());
+static void CheckMouse(Widget *widget) {
+    
+    if (!widget || !widget->active) return;
+    DEBUG_WIDGET(widget);
+    bool pressed = IsMouseButtonPressed(MOUSE_LEFT_BUTTON);
+    bool down = IsMouseButtonDown(MOUSE_LEFT_BUTTON);
+    bool released = IsMouseButtonReleased(MOUSE_LEFT_BUTTON);
+    bool inside = CheckCollisionPointRec(GetMousePosition(), widget->rect);
+    
+    MouseEvent me;
+    MouseEvent prevMe = widget->widgetStatus;
+    
+    if (pressed && inside) {
+        me = ME_CLICK;
+    } else if (down && inside) {
+        if (prevMe == ME_CLICK || prevMe == ME_DOWN) {
+            me = ME_DOWN;
+        } else {
+            me = ME_NONE;
         }
-        CheckMouseAll(childs->items[i]);
+    } else if (released && prevMe == ME_DOWN) {
+        me = ME_RELEASE;
+    } else if (inside) {
+        me = ME_HOVER;
+    } else {
+        me = ME_NONE;
     }
+
+    if (me == ME_CLICK && widget->mouseListener.OnClick) widget->mouseListener.OnClick(GetMousePosition());
+    else if (me == ME_HOVER && widget->mouseListener.OnHover) widget->mouseListener.OnHover(GetMousePosition());
+    else if (me == ME_DOWN && widget->mouseListener.OnPressed) widget->mouseListener.OnPressed(GetMousePosition());
+    else if (me == ME_RELEASE && widget->mouseListener.OnReleased) widget->mouseListener.OnReleased(GetMousePosition());
+
+    widget->widgetStatus = me;  // TODO: Change this to make OnReleased work
 }
 
 #endif // ZRAYGUI_IMPLEMENTATION
