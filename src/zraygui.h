@@ -24,6 +24,19 @@
         (da)->items[(da)->count++] = (item);                                         \
     } while (0)
 
+#define da_remove(da, item)                                                   \
+    do {                                                                      \
+        for (size_t i = 0; i < (da)->count; i++) {                            \
+            if ((da)->items[i] == (item)) {                                   \
+                for (size_t j = i; j < (da)->count - 1; j++) {                \
+                    (da)->items[j] = (da)->items[j + 1];                      \
+                }                                                             \
+                (da)->count--;                                                \
+                break;                                                        \
+            }                                                                 \
+        }                                                                     \
+    } while (0)
+
 #define ARRAY_SIZE(arr) sizeof(arr)/sizeof(char*)
 #define DEBUG_RECTANGLE(rect) printf("Rectangle[%1.f, %1.f, %1.f, %1.f]\n", rect.x, rect.y, rect.width, rect.height);
 #define DEBUG_WIDGET(w) printf("Widget[%d, %s, act = %d, visi = %d]\n", w->type, w->label, w->active, w->visible);
@@ -200,6 +213,10 @@ ZRAYGUIAPI Widget *CreateListView(Rectangle rect);
 ZRAYGUIAPI void AddWidget(Layout *layout, Widget *widget);
 ZRAYGUIAPI void AddItemToMenuBar(Widget *menuBarWidget, Widget *menuItemWidget);
 ZRAYGUIAPI void AddItemToListView(Widget *listViewWidget, char *item);
+
+ZRAYGUIAPI void RemoveWidget(Layout *layout, Widget *widget);
+ZRAYGUIAPI void RemoveItemFromMenuBar(Widget *menuBarWidget, Widget *menuItemWidget);
+ZRAYGUIAPI void RemoveItemFromListView(Widget *listViewWidget, size_t index);
 
 ZRAYGUIAPI void RenderWindow(Layout *rootLayout);
 ZRAYGUIAPI void SetWidgetVisible(Widget *widget, bool visible);
@@ -387,7 +404,6 @@ void AddItemToMenuBar(Widget *menuBarWidget, Widget *menuItemWidget) {
     if (menuBarWidget->type != W_MENUBAR || menuItemWidget->type != W_MENUITEM) return;
     MenuBar *menubar = (MenuBar*)menuBarWidget->component;
     MenuItem *menuitem = (MenuItem*)menuItemWidget->component;
-    // TODO: Calc the new x pos
     AddWidget(menuBarWidget->parent->parent, menuItemWidget);
     da_append(menubar, menuitem);
     if (menuitem->parent == NULL) {
@@ -416,6 +432,29 @@ void AddItemToListView(Widget *listViewWidget, char *item) {
     ListView *listview = (ListView*)listViewWidget->component;
     da_append(listview, item);
 }
+
+void RemoveWidget(Layout *layout, Widget *widget) {
+    LayoutList *childs = layout->childs;
+    Layout *parent = widget->parent;
+    da_remove(childs, parent);
+}
+
+ZRAYGUIAPI void RemoveItemFromMenuBar(Widget *menuBarWidget, Widget *menuItemWidget) {
+    if (menuBarWidget->type != W_MENUBAR || menuItemWidget->type != W_MENUITEM) return;
+    MenuBar *menubar = (MenuBar*)menuBarWidget->component;
+    MenuItem *menuitem = (MenuItem*)menuItemWidget->component;
+    RemoveWidget(menuBarWidget->parent->parent, menuItemWidget);
+    da_remove(menubar, menuitem);
+    // TODO: Re-calculate the new positions of the rest of the widgets.
+}
+
+ZRAYGUIAPI void RemoveItemFromListView(Widget *listViewWidget, size_t index) {
+    if (listViewWidget->type != W_LISTVIEW) return;
+    ListView *listview = (ListView*)listViewWidget->component;
+    if (index < 0 || index >= listview->count) return;
+    da_remove(listview, listview->items[index]);
+}
+
 
 static Widget *BuildWidget(WidgetType wtype, Component *component) {
     Widget *widget = (Widget*)malloc(sizeof(Widget));
