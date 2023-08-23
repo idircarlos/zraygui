@@ -41,6 +41,8 @@
 #define DEBUG_RECTANGLE(rect) printf("Rectangle[%1.f, %1.f, %1.f, %1.f]\n", rect.x, rect.y, rect.width, rect.height);
 #define DEBUG_WIDGET(w) printf("Widget[%d, %s, act = %d, visi = %d]\n", w->type, w->label, w->active, w->visible);
 
+#define CHECK_WIDGET_TYPE(w,t) if ((!w) || (w->type) != t) return
+
 
 typedef struct _component Component;    // Generic empty struct used to contain the pointer to the specific widget (button, label...)
 typedef struct _layout_list LayoutList;
@@ -100,7 +102,6 @@ struct _widget {
     Component *component;
     bool visible;
     bool active;
-    void (*onClick)(Vector2 mousePos);
     MouseEvent widgetStatus;
     MouseListeners mouseListener;
 };
@@ -149,7 +150,6 @@ typedef struct TextBox {
 
 typedef struct MenuItem {
     Widget *super;
-    char *text;
     struct MenuItem *parent;
     MenuItemList *childs;
     bool isLeaf;
@@ -210,6 +210,9 @@ ZRAYGUIAPI Widget *CreateMenuBar();
 ZRAYGUIAPI Widget *CreateMenuItem(Widget *parentMenuItemWidget, char *text);
 ZRAYGUIAPI Widget *CreateListView(Rectangle rect);
 
+ZRAYGUIAPI void DestroyLayout(Layout *layout);
+ZRAYGUIAPI void DestroyWidget(Widget *widget);
+
 ZRAYGUIAPI void AddWidget(Layout *layout, Widget *widget);
 ZRAYGUIAPI void AddItemToMenuBar(Widget *menuBarWidget, Widget *menuItemWidget);
 ZRAYGUIAPI void AddItemToListView(Widget *listViewWidget, char *item);
@@ -250,8 +253,10 @@ ZRAYGUIAPI void SetWidgetOnReleased(Widget *widget, void (*callback)(Vector2 mou
 static LayoutList *CreateLayoutList();
 static void UpdateLayout(Layout *parent);
 static void AddToLayout(Layout *parent, Layout *children);
-static void RenderLayout(Layout *layout);
 
+static Widget *BuildWidget(WidgetType wtype, Component *component);
+
+static void RenderLayout(Layout *layout);
 static void RenderWidget(Widget *widget);
 static void RenderListView(Widget *widget);
 static void RenderMenuBar(Widget *widget);
@@ -264,6 +269,19 @@ static void RenderRadio(Widget *widget);
 static void RenderCheckBox(Widget *widget);
 static void RenderLabel(Widget *widget);
 static void RenderButton(Widget *widget);
+
+static void DestroySuperWidget(Widget *widget);
+static void DestroyButton(Widget *buttonWidget);
+static void DestroyLabel(Widget *labelWidget);
+static void DestroyCheckBox(Widget *checkBoxWidget);
+static void DestroyRadio(Widget *radioWidget);
+static void DestroyComboBox(Widget *comboBoxWidget);
+static void DestroyGroupBox(Widget *groupBoxWidget);
+static void DestroySeparator(Widget *separatorWidget);
+static void DestroyTextBox(Widget *textBoxWidget);
+static void DestroyMenuBar(Widget *menuBarWidget);
+static void DestroyMenuItem(Widget *menuItemWidget);
+static void DestroyListView(Widget *listViewWidget);
 
 static void DrawTextCentered(char *text, int fontSize, Rectangle rect);
 static void CheckMouse(Widget *widget);
@@ -424,7 +442,6 @@ void AddItemToMenuBar(Widget *menuBarWidget, Widget *menuItemWidget) {
         }
         AddItemToMenuBar(menuBarWidget, childWidget);
     }
-    printf("[AddItemToMenuBar] %s -> (%1.f,%1.f) level %zu\n", menuitem->text, menuItemWidget->rect.x, menuItemWidget->rect.y, menuitem->level);    
 }
 
 void AddItemToListView(Widget *listViewWidget, char *item) {
@@ -439,7 +456,7 @@ void RemoveWidget(Layout *layout, Widget *widget) {
     da_remove(childs, parent);
 }
 
-ZRAYGUIAPI void RemoveItemFromMenuBar(Widget *menuBarWidget, Widget *menuItemWidget) {
+void RemoveItemFromMenuBar(Widget *menuBarWidget, Widget *menuItemWidget) {
     if (menuBarWidget->type != W_MENUBAR || menuItemWidget->type != W_MENUITEM) return;
     MenuBar *menubar = (MenuBar*)menuBarWidget->component;
     MenuItem *menuitem = (MenuItem*)menuItemWidget->component;
@@ -448,27 +465,55 @@ ZRAYGUIAPI void RemoveItemFromMenuBar(Widget *menuBarWidget, Widget *menuItemWid
     // TODO: Re-calculate the new positions of the rest of the widgets.
 }
 
-ZRAYGUIAPI void RemoveItemFromListView(Widget *listViewWidget, size_t index) {
+void RemoveItemFromListView(Widget *listViewWidget, size_t index) {
     if (listViewWidget->type != W_LISTVIEW) return;
     ListView *listview = (ListView*)listViewWidget->component;
     if (index < 0 || index >= listview->count) return;
     da_remove(listview, listview->items[index]);
 }
 
-
-static Widget *BuildWidget(WidgetType wtype, Component *component) {
-    Widget *widget = (Widget*)malloc(sizeof(Widget));
-    widget->parent = NULL;
-    widget->type = wtype;
-    widget->component = component;
-    widget->rect = (Rectangle){0};
-    widget->onClick = NULL;
-    widget->active = true;
-    widget->visible = true;
-    widget->label = NULL;
-    widget->mouseListener = (MouseListeners){0};
-    widget->widgetStatus = ME_NONE;
-    return widget;
+void DestroyWidget(Widget *widget) {
+    printf("lol\n");
+    if (!widget) return;
+    switch (widget->type) {
+        case W_BUTTON:
+            DestroyButton(widget);
+            break;
+        case W_LABEL:
+            printf("here\n");
+            DestroyLabel(widget);
+            break;
+        case W_CHECKBOX:
+            DestroyCheckBox(widget);
+            break;
+        case W_RADIO:
+            DestroyRadio(widget);
+            break;
+        case W_COMBOBOX:
+            DestroyComboBox(widget);
+            break;
+        case W_GROUPBOX:
+            DestroyGroupBox(widget);
+            break;
+        case W_SEPARATOR:
+            DestroySeparator(widget);
+            break;
+        case W_TEXTBOX:
+            DestroyTextBox(widget);
+            break;
+        case W_MENUITEM:
+            DestroyMenuItem(widget);
+            break;
+        case W_MENUBAR:
+            DestroyMenuBar(widget);
+            break;
+        case W_LISTVIEW:
+            DestroyListView(widget);
+            break;
+        default:
+            assert(0 && "Unreachable");
+    }
+    DestroySuperWidget(widget);
 }
 
 Widget *CreateButton(char *text) {
@@ -589,7 +634,6 @@ Widget *CreateMenuItem(Widget *parentMenuItemWidget, char *text) {
             .height = parentMenuItemWidget->rect.height
         };
     }
-    printf("[CreateMenuItem] %s width %f\n", menuitem->text, widget->rect.x);
     return widget;
 }
 
@@ -601,6 +645,86 @@ Widget *CreateListView(Rectangle rect) {
     Widget *widget = BuildWidget(W_LISTVIEW, (Component*)listview);
     widget->rect = rect;
     return widget;
+}
+
+// Does not destroy widget
+void DestroyLayout(Layout *layout) {
+    if(!layout) return;
+    Layout *parent = layout->parent;
+    if (parent) {
+        LayoutList *childs = parent->childs;
+        da_remove(childs, layout);
+        for (size_t i = 0; i < layout->childs->count; i++) {
+            DestroyLayout(layout->childs->items[i]);
+        }
+        free(layout->childs->items);
+        free(layout->childs);
+        free(layout);
+    }
+}
+
+void DestroyButton(Widget *buttonWidget) {
+    CHECK_WIDGET_TYPE(buttonWidget, W_BUTTON);
+    Button *button = (Button*)buttonWidget->component;
+}
+
+void DestroyLabel(Widget *labelWidget) {
+    CHECK_WIDGET_TYPE(labelWidget, W_LABEL);
+    Label *label = (Label*)labelWidget->component;
+}
+
+void DestroyCheckBox(Widget *checkBoxWidget) {
+    CHECK_WIDGET_TYPE(checkBoxWidget, W_CHECKBOX);
+    CheckBox *checkbox = (CheckBox*)checkBoxWidget->component;
+}
+
+void DestroyRadio(Widget *radioWidget) {
+    CHECK_WIDGET_TYPE(radioWidget, W_RADIO);
+    Radio *radio = (Radio*)radioWidget->component;
+}
+
+void DestroyComboBox(Widget *comboBoxWidget) {
+    CHECK_WIDGET_TYPE(comboBoxWidget, W_COMBOBOX);
+    ComboBox *combobox = (ComboBox*)comboBoxWidget->component;
+    for (size_t i = 0; i < combobox->size; i++) {
+        free(combobox->options[i]);
+    }
+    free(combobox->options);
+}
+
+void DestroyGroupBox(Widget *groupBoxWidget) {
+    CHECK_WIDGET_TYPE(groupBoxWidget, W_GROUPBOX);
+    GroupBox *groupbox = (GroupBox*)groupBoxWidget->component;
+}
+
+void DestroySeparator(Widget *separatorWidget) {
+    CHECK_WIDGET_TYPE(separatorWidget, W_SEPARATOR);
+    Separator *separator = (Separator*)separatorWidget->component;
+}
+
+void DestroyTextBox(Widget *textBoxWidget) {
+    CHECK_WIDGET_TYPE(textBoxWidget, W_TEXTBOX);
+    TextBox *textbox = (TextBox*)textBoxWidget->component;
+}
+
+void DestroyMenuBar(Widget *menuBarWidget) {
+    CHECK_WIDGET_TYPE(menuBarWidget, W_MENUBAR);
+    MenuBar *menubar = (MenuBar*)menuBarWidget->component;
+    free(menubar->items);
+}
+
+void DestroyMenuItem(Widget *menuItemWidget) {
+    CHECK_WIDGET_TYPE(menuItemWidget, W_MENUITEM);
+    MenuItem *menuitem = (MenuItem*)menuItemWidget->component;
+    MenuItemList *childs = menuitem->childs;
+    free(childs->items);
+    free(childs);
+}
+
+void DestroyListView(Widget *listViewWidget) {
+    CHECK_WIDGET_TYPE(listViewWidget, W_LISTVIEW);
+    ListView *listview = (ListView*)listViewWidget->component;
+    free(listview->items);
 }
 
 void RenderWindow(Layout *rootLayout) {
@@ -637,6 +761,20 @@ void SetWidgetVisible(Widget *widget, bool visible) {
 //----------------------------------------------------------------------------------
 // Module specific Functions Definition
 //----------------------------------------------------------------------------------
+
+static Widget *BuildWidget(WidgetType wtype, Component *component) {
+    Widget *widget = (Widget*)malloc(sizeof(Widget));
+    widget->parent = NULL;
+    widget->type = wtype;
+    widget->component = component;
+    widget->rect = (Rectangle){0};
+    widget->active = true;
+    widget->visible = true;
+    widget->label = NULL;
+    widget->mouseListener = (MouseListeners){0};
+    widget->widgetStatus = ME_NONE;
+    return widget;
+}
 
 static void DrawTextCentered(char *text, int fontSize, Rectangle rect) {
     int size = MeasureText(text, fontSize);
@@ -805,6 +943,14 @@ static void RenderWidget(Widget *widget) {
     }
 }
 
+static void DestroySuperWidget(Widget *widget) {
+    free(widget->component);
+    Layout *wrapper = widget->parent;
+    Layout *parent = wrapper->parent;
+    da_remove(parent->childs, wrapper);
+    free(wrapper);
+}
+
 static LayoutList *CreateLayoutList() {
     LayoutList *list = (LayoutList*)malloc(sizeof(LayoutList));
     list->items = (Layout**)malloc(sizeof(Layout*));
@@ -862,7 +1008,6 @@ static void RenderLayout(Layout *layout) {
 
 static void CheckMouse(Widget *widget) {
     if (!widget || !widget->active) return;
-    DEBUG_WIDGET(widget);
     bool pressed = IsMouseButtonPressed(MOUSE_LEFT_BUTTON);
     bool down = IsMouseButtonDown(MOUSE_LEFT_BUTTON);
     bool released = IsMouseButtonReleased(MOUSE_LEFT_BUTTON);
